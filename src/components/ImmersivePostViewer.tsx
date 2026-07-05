@@ -772,7 +772,14 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
       <PulseSendSheet 
         isOpen={showShareMenu} 
         onClose={() => setShowShareMenu(false)} 
-        post={{ id: `immers_${currentIndex}`, image: urls[currentIndex], user: user?.username || 'user', handle: user?.handle || 'user', avatar: user?.avatar }} 
+        post={{ 
+          id: `immers_${currentIndex}`, 
+          image: (type === 'vibe' || type === 'video' || type === 'video_thumb' || urls[currentIndex]?.startsWith('data:video/') || urls[currentIndex]?.includes('400/700')) ? '' : urls[currentIndex], 
+          video: (type === 'vibe' || type === 'video' || type === 'video_thumb' || urls[currentIndex]?.startsWith('data:video/') || urls[currentIndex]?.includes('400/700')) ? urls[currentIndex] : '', 
+          user: user?.username || 'user', 
+          handle: user?.handle || 'user', 
+          avatar: user?.avatar 
+        }} 
         onShareComplete={() => setShowShareMenu(false)} 
         isVibe={type === 'vibe'}
       />

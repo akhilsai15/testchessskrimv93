@@ -845,6 +845,7 @@ function VibeCard({
         post={{
           id: vibe.id,
           image: vibe.thumbnail || '',
+          video: vibe.videoSrc || '',
           user: vibe.user,
           handle: vibe.handle,
           avatar: vibe.avatar,

@@ -502,6 +502,7 @@ export function PulseSendSheet({
       const sparkId = isSpark ? `repost_${post.id}_${Date.now()}` : `postspark_${post.id}`;
       if (!stored.some((s: any) => s.id === sparkId)) {
         const thumbnail = post.image || post.images?.[0] || null;
+        const video = post.video || post.videoSrc || null;
         let activeUser = currentUser;
         if (!activeUser) {
           const storedUser = localStorage.getItem('skrimchat_user') || localStorage.getItem('skrimchat_mock_user');
@@ -535,7 +536,9 @@ export function PulseSendSheet({
           expiresAt: Date.now() + 24 * 60 * 60 * 1000,
           hasViewed: false, views: 0, energy: 'COLD',
           reactions: { pulse: 0, blaze: 0, vibe: 0 },
-          type: thumbnail ? 'image' : 'text', image: thumbnail,
+          type: video ? 'video' : (thumbnail ? 'image' : 'text'),
+          image: thumbnail,
+          video: video,
           text: post.caption || post.text || '',
           caption: post.caption || post.text || '', sourcePostId: post.id,
           background: 'purple',
