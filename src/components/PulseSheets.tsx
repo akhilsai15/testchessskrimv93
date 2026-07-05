@@ -487,12 +487,13 @@ const SOCIAL_PLATFORMS = [
   { id: 'see_all', label: 'See all', bg: 'rgba(255,255,255,0.1)', border: true, action: (url) => { if (typeof navigator !== 'undefined' && navigator.share) { navigator.share({ title: 'Check out this Pulse!', url: url }).catch(() => {}); } }, svg: <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-white fill-none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> } ];
 
 export function PulseSendSheet({
-  isOpen, onClose, post, onShareComplete, currentUser, isSpark = false
+  isOpen, onClose, post, onShareComplete, currentUser, isSpark = false, isVibe = false
 }: {
   isOpen: boolean; onClose: () => void; post: any;
   onShareComplete: (type: string, message: string) => void;
   currentUser?: any;
   isSpark?: boolean;
+  isVibe?: boolean;
 }) {
   const handleShareAsSpark = () => {
     if (!post) return;
@@ -541,8 +542,8 @@ export function PulseSendSheet({
   const [showAllPlatforms, setShowAllPlatforms] = useState(false);
 
   const shareUrl = typeof window !== 'undefined'
-    ? `skrim.chat/${isSpark ? 'spark' : 'pulse'}/${post?.id || 'post'}`
-    : `skrim.chat/${isSpark ? 'spark' : 'pulse'}/post`;
+    ? `skrim.chat/${isSpark ? 'spark' : isVibe ? 'vibe' : 'pulse'}/${post?.id || 'post'}`
+    : `skrim.chat/${isSpark ? 'spark' : isVibe ? 'vibe' : 'pulse'}/post`;
 
   const allContacts = mockUsers.slice(0, 12).map(u => ({
     id: u.id,
@@ -595,10 +596,10 @@ export function PulseSendSheet({
     if (option === 'Connect') {
       setActiveView('connect');
     } else if (option === 'your story') {
-      close(isSpark ? '✨ Added to your Spark!' : '✨ Added to your Pulse!');
+      close(isSpark ? '✨ Added to your Spark!' : isVibe ? '✨ Added to your Vibe!' : '✨ Added to your Pulse!');
     } else if (option === 'Arattai') {
       handleCopyLink();
-      close(isSpark ? '💬 Shared Spark to Arattai!' : '💬 Shared to Arattai!');
+      close(isSpark ? '💬 Shared Spark to Arattai!' : isVibe ? '💬 Shared Vibe to Arattai!' : '💬 Shared to Arattai!');
     } else if (option === 'Copy') {
       handleCopyLink();
     } else {
@@ -661,7 +662,7 @@ export function PulseSendSheet({
       window.dispatchEvent(new CustomEvent('skrimchat_custom_chats_updated'));
 
       const label = selectedContacts.length === 1 ? `@${sentToNames[0]}` : `${selectedContacts.length} people`;
-      close(isSpark ? `💬 Spark sent to ${label}!` : `💬 Pulse sent to ${label}!`);
+      close(isSpark ? `💬 Spark sent to ${label}!` : isVibe ? `💬 Vibe sent to ${label}!` : `💬 Pulse sent to ${label}!`);
     } catch (e) {
       close('💬 Sent!');
     }
@@ -689,6 +690,10 @@ export function PulseSendSheet({
                     {isSpark ? (
                       <>
                         <Sparkles className="w-5 h-5 text-yellow-500" /> Share Spark ✨
+                      </>
+                    ) : isVibe ? (
+                      <>
+                        <Share2 className="w-5 h-5 text-[#B026FF]" /> Share Vibe ⚡
                       </>
                     ) : (
                       <>

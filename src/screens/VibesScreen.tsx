@@ -854,6 +854,7 @@ function VibeCard({
           mood: vibe.mood || ''
         }}
         currentUser={currentUser}
+        isVibe={true}
         onShareComplete={(type: string, msg: string) => {
           handleShareComplete();
           if (msg) {
