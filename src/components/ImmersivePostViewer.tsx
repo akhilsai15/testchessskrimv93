@@ -40,6 +40,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showCommentsSheet, setShowCommentsSheet] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pulseRipples, setPulseRipples] = useState<{ id: number; x: number; y: number }[]>([]);
   const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
   const pressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -402,17 +403,17 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onDeletePost(currentPost);
+                setShowDeleteConfirm(true);
               }}
               title="Delete post"
-              className="w-10 h-10 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-full flex items-center justify-center transition backdrop-blur-md border border-red-500/30 active:scale-95"
+              className="w-10 h-10 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-full flex items-center justify-center transition backdrop-blur-md border border-red-500/30 active:scale-95 z-[60]"
             >
               <Trash2 className="w-5 h-5" />
             </button>
           )}
           <button
             onClick={onClose}
-            className="w-10 h-10 bg-black/40 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition backdrop-blur-md border border-white/10"
+            className="w-10 h-10 bg-black/40 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition backdrop-blur-md border border-white/10 z-[60]"
           >
             <X className="w-5 h-5" />
           </button>
@@ -832,6 +833,51 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
             className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[100] bg-[rgba(20,20,20,0.95)] backdrop-blur-md border border-[#B026FF] shadow-lg px-4 py-3 rounded-xl flex items-center gap-2 w-max max-w-[90vw]"
           >
             <span className="text-white text-sm font-medium">{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal Overlay */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/85 backdrop-blur-md z-[150] flex flex-col items-center justify-center p-6 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="bg-black/80 border border-red-500/30 p-6 rounded-2xl max-w-sm w-full shadow-[0_0_50px_rgba(239,68,68,0.15)] backdrop-blur-xl"
+            >
+              <div className="w-14 h-14 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-6 h-6 text-red-400 animate-pulse" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Delete Pulse Post</h3>
+              <p className="text-sm text-white/60 mb-6">Are you sure you want to delete this pulse post? This cannot be undone.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium transition active:scale-95 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    if (onDeletePost && currentPost) {
+                      onDeletePost(currentPost);
+                    }
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium transition active:scale-95 text-sm shadow-[0_4px_20px_rgba(220,38,38,0.3)]"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

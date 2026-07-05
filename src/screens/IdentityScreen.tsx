@@ -362,7 +362,6 @@ export default function IdentityScreen() {
 
   const handleDeletePost = (post: any) => {
     if (!post || !post.id) return;
-    if (!window.confirm("Are you sure you want to delete this pulse post? This cannot be undone.")) return;
     
     try {
       const deletedIds = JSON.parse(localStorage.getItem('skrimchat_deleted_post_ids') || '[]');
