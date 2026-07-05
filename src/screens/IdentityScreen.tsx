@@ -113,6 +113,7 @@ export default function IdentityScreen() {
   const { offlineVibes, loadVibes, deleteVibe } = useOfflineStore();
   const [selectedMedia, setSelectedMedia] = useState<{index: number, type: 'post'|'vibe'|'saved'|'repost'|'tagged'|string, urls: string[], users?: any[]} | null>(null);
   const pinnedPostIds = usePinnedPosts(user?.username || '');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     loadVibes();
@@ -317,7 +318,10 @@ export default function IdentityScreen() {
     hydrate();
 
     // Re-hydrate whenever a post is saved from Pulse
-    const onSaved = () => hydrate();
+    const onSaved = () => {
+      hydrate();
+      setRefreshTrigger(prev => prev + 1);
+    };
     window.addEventListener('skrimchat_post_saved', onSaved);
 
     // Refresh reposts tab whenever a new repost is made
@@ -326,33 +330,72 @@ export default function IdentityScreen() {
         const stored: any[] = JSON.parse(localStorage.getItem('skrimchat_reposts') || '[]');
         setRepostItems(stored);
       } catch {}
+      setRefreshTrigger(prev => prev + 1);
     };
     window.addEventListener('skrimchat_post_reposted', onReposted);
 
-    // Refresh custom posts when updated
-    window.addEventListener('skrimchat_custom_posts_updated', loadUserPosts);
+    // Refresh custom posts, saved, and reposts when updated
+    const onPostsUpdated = () => {
+      loadUserPosts();
+      setRefreshTrigger(prev => prev + 1);
+    };
+    window.addEventListener('skrimchat_custom_posts_updated', onPostsUpdated);
+    window.addEventListener('skrimchat_comment_added', onPostsUpdated);
 
     return () => {
       window.removeEventListener('skrimchat_post_saved', onSaved);
       window.removeEventListener('skrimchat_post_reposted', onReposted);
-      window.removeEventListener('skrimchat_custom_posts_updated', loadUserPosts);
+      window.removeEventListener('skrimchat_custom_posts_updated', onPostsUpdated);
+      window.removeEventListener('skrimchat_comment_added', onPostsUpdated);
     };
   }, [user?.username]);
 
   useEffect(() => {
+    let editedTexts: Record<string, string> = {};
+    try {
+      editedTexts = JSON.parse(localStorage.getItem('skrimchat_edited_post_texts') || '{}');
+    } catch (e) {}
+
+    let commentCounts: Record<string, number> = {};
+    try {
+      commentCounts = JSON.parse(localStorage.getItem('skrimchat_comment_counts') || '{}');
+    } catch (e) {}
+
     const allContent = [...mockReels, ...mockPosts];
     const fullById = new Map(savedFullPosts.map((p: any) => [p.id, p]));
-    const saved = savedPosts.map(id => fullById.get(id) || allContent.find(c => c.id === id)).filter(Boolean);
+    const saved = savedPosts.map(id => {
+      const p = fullById.get(id) || allContent.find(c => c.id === id);
+      if (!p) return null;
+      return {
+        ...p,
+        text: editedTexts[p.id] !== undefined ? editedTexts[p.id] : p.text,
+        caption: editedTexts[p.id] !== undefined ? editedTexts[p.id] : p.caption,
+        comments: commentCounts[p.id] !== undefined ? commentCounts[p.id] : p.comments,
+      };
+    }).filter(Boolean);
     setSavedItems(saved as any[]);
 
     // Load reposts directly from localStorage — full objects, not just IDs
     try {
       const stored: any[] = JSON.parse(localStorage.getItem('skrimchat_reposts') || '[]');
-      setRepostItems(stored);
+      const updatedStored = stored.map((item: any) => {
+        const p = item.originalPost || item;
+        const updatedP = {
+          ...p,
+          text: editedTexts[p.id] !== undefined ? editedTexts[p.id] : p.text,
+          caption: editedTexts[p.id] !== undefined ? editedTexts[p.id] : p.caption,
+          comments: commentCounts[p.id] !== undefined ? commentCounts[p.id] : p.comments,
+        };
+        if (item.originalPost) {
+          return { ...item, originalPost: updatedP };
+        }
+        return updatedP;
+      });
+      setRepostItems(updatedStored);
     } catch {
       setRepostItems([]);
     }
-  }, [savedPosts, repostedPosts, savedFullPosts]);
+  }, [savedPosts, repostedPosts, savedFullPosts, refreshTrigger]);
 
    useEffect(() => {
     if (!user) return;
@@ -1121,7 +1164,7 @@ export default function IdentityScreen() {
                    index: i, 
                    type: isVideo ? 'vibe' : 'saved', 
                    urls: savedItems.map(it => it.image || it.videoImageHover || it.videoImage || it.thumbnail),
-                   users: savedItems.map(it => ({ username: it.handle || it.userName || it.user?.username || '@someone', avatar: it.avatar || it.userAvatar || it.user?.avatar }))
+                   users: savedItems.map((it: any) => ({ ...it, username: it.handle || it.userName || it.user?.username || '@someone', avatar: it.avatar || it.userAvatar || it.user?.avatar || 'https://i.pravatar.cc/150' }))
                  })}
                >
                  <img src={url} alt="saved" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -1207,7 +1250,7 @@ export default function IdentityScreen() {
                   index: i,
                   type: isVideo ? 'vibe' : 'repost',
                   urls: repostItems.map(it => { const p = it.originalPost || it; return p.image || p.images?.[0] || p.videoImageHover || p.videoImage || `https://picsum.photos/400/400?random=rp${i}`; }),
-                  users: repostItems.map(it => { const p = it.originalPost || it; const u = p.user || {}; return { username: (typeof u === 'object' ? u.username : u) || p.handle || '@someone', avatar: (typeof u === 'object' ? u.avatar : '') || p.avatar || '' }; })
+                  users: repostItems.map(it => { const p = it.originalPost || it; const u = p.user || {}; return { ...p, username: (typeof u === 'object' ? u.username : u) || p.handle || '@someone', avatar: (typeof u === 'object' ? u.avatar : '') || p.avatar || '' }; })
                 })}
               >
                 <img src={url} alt="repost" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
