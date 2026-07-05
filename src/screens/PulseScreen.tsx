@@ -2621,6 +2621,18 @@ export default function PulseScreen() {
     return () => window.removeEventListener('skrimchat_post_reposted', onFeedRepost);
   }, []);
 
+  useEffect(() => {
+    const handleUpdated = () => {
+      doRefreshFetch();
+    };
+    window.addEventListener('skrimchat_custom_posts_updated', handleUpdated);
+    window.addEventListener('skrimchat_post_deleted', handleUpdated);
+    return () => {
+      window.removeEventListener('skrimchat_custom_posts_updated', handleUpdated);
+      window.removeEventListener('skrimchat_post_deleted', handleUpdated);
+    };
+  }, []);
+
   // Scheduled Pulses live in localStorage (same mock-persistence convention as
   // everything else in this app) so they survive a refresh. A 30s poll checks
   // for anything past its scheduledFor time and publishes it to the top of the
@@ -2702,8 +2714,20 @@ export default function PulseScreen() {
 
       if (append) {
         setPosts(prev => {
+          let deletedIds: string[] = [];
+          try {
+            deletedIds = JSON.parse(localStorage.getItem('skrimchat_deleted_post_ids') || '[]');
+          } catch (e) {}
+          const muted = getMutedUsers();
+          const blocked = getBlockedUsers();
+          const filterPost = (p: any) => {
+            if (p && p.id && deletedIds.includes(p.id)) return false;
+            const handle = (p.handle || p.user?.username || p.userName || '').replace('@', '');
+            return !muted.includes(handle) && !blocked.includes(handle);
+          };
+
           const ids = new Set(prev.map(p => p.id));
-          const fresh = synced.filter(p => !ids.has(p.id));
+          const fresh = synced.filter(p => !ids.has(p.id)).filter(filterPost);
           return [...prev, ...fresh];
         });
         setIsLoadingMore(false);
@@ -2718,10 +2742,17 @@ export default function PulseScreen() {
           reposts = JSON.parse(localStorage.getItem('skrimchat_reposts') || '[]');
           customPosts = JSON.parse(localStorage.getItem('skrimchat_custom_posts') || '[]');
         } catch (e) {}
-        // Filter out posts from muted or blocked users
+        
+        let deletedIds: string[] = [];
+        try {
+          deletedIds = JSON.parse(localStorage.getItem('skrimchat_deleted_post_ids') || '[]');
+        } catch (e) {}
+
+        // Filter out posts from muted or blocked users as well as deleted ones
         const muted = getMutedUsers();
         const blocked = getBlockedUsers();
         const filterPost = (p: any) => {
+          if (p && p.id && deletedIds.includes(p.id)) return false;
           const handle = (p.handle || p.user?.username || p.userName || '').replace('@', '');
           return !muted.includes(handle) && !blocked.includes(handle);
         };
@@ -2815,10 +2846,15 @@ export default function PulseScreen() {
       customPosts = JSON.parse(localStorage.getItem('skrimchat_custom_posts') || '[]');
     } catch (e) {}
 
-    // Filter out posts from muted or blocked users
+    // Filter out posts from muted or blocked users as well as deleted ones
+    let deletedIds: string[] = [];
+    try {
+      deletedIds = JSON.parse(localStorage.getItem('skrimchat_deleted_post_ids') || '[]');
+    } catch (e) {}
     const muted = getMutedUsers();
     const blocked = getBlockedUsers();
     const filterPost = (p: any) => {
+      if (p && p.id && deletedIds.includes(p.id)) return false;
       const handle = (p.handle || p.user?.username || p.userName || '').replace('@', '');
       return !muted.includes(handle) && !blocked.includes(handle);
     };

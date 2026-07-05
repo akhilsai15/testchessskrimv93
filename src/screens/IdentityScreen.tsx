@@ -267,13 +267,22 @@ export default function IdentityScreen() {
         customPosts = JSON.parse(localStorage.getItem('skrimchat_custom_posts') || '[]');
       } catch (e) {}
       
-      const updatedCustom = customPosts.map(p => ({
-        ...p,
-        user: user?.fullName || user?.displayName || 'You',
-        handle: user?.username ? `@${user.username.replace('@', '')}` : p.handle || '@you',
-        avatar: user?.avatar || p.avatar || '',
-      }));
-      setPosts([...updatedCustom, ...mockPosts.slice(0, 6)]);
+      let deletedIds: string[] = [];
+      try {
+        deletedIds = JSON.parse(localStorage.getItem('skrimchat_deleted_post_ids') || '[]');
+      } catch (e) {}
+
+      const updatedCustom = customPosts
+        .filter(p => p && p.id && !deletedIds.includes(p.id))
+        .map(p => ({
+          ...p,
+          user: user?.fullName || user?.displayName || 'You',
+          handle: user?.username ? `@${user.username.replace('@', '')}` : p.handle || '@you',
+          avatar: user?.avatar || p.avatar || '',
+        }));
+
+      const filteredMocks = mockPosts.slice(0, 6).filter(p => p && p.id && !deletedIds.includes(p.id));
+      setPosts([...updatedCustom, ...filteredMocks]);
     };
 
     loadUserPosts();
@@ -349,6 +358,33 @@ export default function IdentityScreen() {
       setToastMessage('');
       navigate('/login');
     }, 1500);
+  };
+
+  const handleDeletePost = (post: any) => {
+    if (!post || !post.id) return;
+    if (!window.confirm("Are you sure you want to delete this pulse post? This cannot be undone.")) return;
+    
+    try {
+      const deletedIds = JSON.parse(localStorage.getItem('skrimchat_deleted_post_ids') || '[]');
+      if (!deletedIds.includes(post.id)) {
+        deletedIds.push(post.id);
+        localStorage.setItem('skrimchat_deleted_post_ids', JSON.stringify(deletedIds));
+      }
+    } catch (e) {
+      localStorage.setItem('skrimchat_deleted_post_ids', JSON.stringify([post.id]));
+    }
+
+    try {
+      const customPosts = JSON.parse(localStorage.getItem('skrimchat_custom_posts') || '[]');
+      const filteredCustom = customPosts.filter((p: any) => p.id !== post.id);
+      localStorage.setItem('skrimchat_custom_posts', JSON.stringify(filteredCustom));
+    } catch (e) {}
+
+    window.dispatchEvent(new Event('skrimchat_custom_posts_updated'));
+    window.dispatchEvent(new Event('skrimchat_post_deleted'));
+
+    setToastMessage('Post deleted successfully');
+    setSelectedMedia(null);
   };
 
   const handleSaveProfile = () => {
@@ -1165,6 +1201,7 @@ export default function IdentityScreen() {
           user={user}
           users={selectedMedia.users}
           onClose={() => setSelectedMedia(null)}
+          onDeletePost={selectedMedia.type === 'post' ? handleDeletePost : undefined}
         />
       )}
 

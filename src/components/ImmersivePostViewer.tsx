@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Heart, MessageCircle, Share, Music, Send, Link as LinkIcon, Zap, Shield, SmilePlus, Bookmark } from 'lucide-react';
+import { X, Heart, MessageCircle, Share, Music, Send, Link as LinkIcon, Zap, Shield, SmilePlus, Bookmark, Trash2 } from 'lucide-react';
 import { SKRIM_REACTIONS } from '../lib/mock/mockData';
 import { BadgeRow } from './BadgeComponents';
 import { PulseSendSheet } from './PulseSheets';
@@ -15,6 +15,7 @@ interface ImmersivePostViewerProps {
   user: any;
   users?: any[];
   onClose: () => void;
+  onDeletePost?: (post: any) => void;
 }
 
 interface FloatingEmoji {
@@ -30,7 +31,7 @@ interface FloatingEmoji {
   rotation: number;
 }
 
-export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onClose }: ImmersivePostViewerProps) {
+export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onClose, onDeletePost }: ImmersivePostViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [pulsed, setPulsed] = useState(false);
   const [pulsesCount, setPulsesCount] = useState(12000);
@@ -396,12 +397,26 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
           {type === 'tagged' && <><span className="text-sm drop-shadow-md">👤</span> <span className="text-xs font-bold text-white">Tagged</span></>}
         </div>
 
-        <button
-          onClick={onClose}
-          className="w-10 h-10 bg-black/40 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition backdrop-blur-md border border-white/10"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          {onDeletePost && currentPost && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeletePost(currentPost);
+              }}
+              title="Delete post"
+              className="w-10 h-10 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-full flex items-center justify-center transition backdrop-blur-md border border-red-500/30 active:scale-95"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="w-10 h-10 bg-black/40 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition backdrop-blur-md border border-white/10"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Main Image Container */}
