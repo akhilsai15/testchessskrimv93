@@ -610,12 +610,12 @@ function VibeCard({
           ) : (
             <div 
               className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 select-text ${
-                !vibe.bgColor ? 'bg-gradient-to-br from-[#1b0a2a] via-[#0D0D14] to-[#0d0010]' : ''
+                !(vibe.bgColor || vibe.colorTag) ? 'bg-gradient-to-br from-[#1b0a2a] via-[#0D0D14] to-[#0d0010]' : ''
               }`}
-              style={vibe.bgColor ? { backgroundColor: vibe.bgColor } : undefined}
+              style={(vibe.bgColor || vibe.colorTag) ? { backgroundColor: vibe.bgColor || vibe.colorTag } : undefined}
             >
               <p className={`text-2xl md:text-4xl font-black text-center leading-relaxed max-w-xl font-sans tracking-tight ${
-                vibe.bgColor ? 'text-[#0D0010]' : 'text-white'
+                (vibe.bgColor || vibe.colorTag) ? 'text-[#0D0010]' : 'text-white'
               }`}>
                 {vibe.caption}
               </p>
@@ -798,6 +798,35 @@ function VibeCard({
           {/* Caption */}
           <div className="bg-white/5 rounded-2xl p-3 border border-white/5 text-xs max-h-[72px] overflow-y-auto custom-scrollbar">
             <Caption text={vibe.caption} />
+          </div>
+
+          {/* Metadata Tags Row: Mood, Color, and Hashtags */}
+          <div className="flex flex-wrap gap-1.5 mt-0.5 select-none">
+            {/* Mood Tag */}
+            {vibe.mood && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/80">
+                <span>{MOODS.find(m => m.id === vibe.mood)?.emoji || '✨'}</span>
+                <span className="capitalize">{vibe.mood}</span>
+              </span>
+            )}
+
+            {/* Color Tag Indicator */}
+            {(vibe.colorTag || vibe.bgColor) && (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/80">
+                <span 
+                  className="w-2 h-2 rounded-full border border-white/20" 
+                  style={{ backgroundColor: vibe.colorTag || vibe.bgColor }} 
+                />
+                <span>Color Tag</span>
+              </span>
+            )}
+
+            {/* Custom/Selected Hashtags */}
+            {vibe.hashtags && vibe.hashtags.length > 0 && vibe.hashtags.map((tag, idx) => (
+              <span key={idx} className="inline-flex items-center text-[10px] font-mono font-semibold px-2.5 py-1 rounded-full bg-[#00F0FF]/5 border border-[#00F0FF]/15 text-[#00F0FF]">
+                {tag}
+              </span>
+            ))}
           </div>
 
           {/* Social Action Grid */}
@@ -1059,8 +1088,10 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
   const handlePost = () => {
     if (!canPost) return;
     const id = `vibe_user_${Date.now()}`;
+    const parsedHashtags = caption.match(/#[a-zA-Z0-9]+/g) || [];
     const newVibe: VibePost = {
       id,
+      type: postType,
       user: currentUser?.username || 'You',
       handle: `@${currentUser?.handle || 'you'}`,
       avatar: currentUser?.avatar || '',
@@ -1072,6 +1103,7 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
       start_ms: music ? music.start_ms : undefined,
       mood,
       createdAt: Date.now(),
+      likes: 0,
       pulseCount: 0,
       comments: 0,
       shares: 0,
@@ -1082,8 +1114,12 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
       vibeScore: 100,
       watchTimeScore: 0,
       rewatchRatio: 0,
+      colorTag: postType === 'text' && bgColor ? bgColor : undefined,
+      bgColor: postType === 'text' && bgColor ? bgColor : undefined,
+      hashtags: parsedHashtags,
+      isLiked: false,
+      isSaved: false,
       ...(postType === 'video' ? { videoSrc: mediaUrl } : {}),
-      ...(postType === 'text' && bgColor ? { bgColor } : {}),
     } as VibePost;
 
     // Persist alongside mock data so a refresh doesn't lose it, following

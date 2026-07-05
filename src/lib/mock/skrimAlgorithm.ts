@@ -382,15 +382,19 @@ export function assembleFeed(
 // ─── VIBES ALGORITHM ─────────────────────────────────────────
 export interface VibePost {
   id: string;
+  type: 'text' | 'image' | 'video'; // Mirrored from Pulse types
   user: string;
   handle: string;
   avatar: string;
   thumbnail: string;
   caption: string;
   audio: string;
-  mood: string;
+  time?: string;
   createdAt: number;
-  pulseCount: number;
+  isLiked?: boolean;
+  isSaved?: boolean;
+  likes: number; // Mirrored from Pulse likes
+  pulseCount: number; // Retained for backwards compatibility
   comments: number;
   shares: number;
   saves: number;
@@ -405,6 +409,9 @@ export interface VibePost {
   duration?: number; // optional custom play duration in seconds (e.g. 15 or 30)
   start_ms?: number; // optional custom play start time offset in milliseconds
   bgColor?: string; // optional custom background hex string for solid color text-only vibes
+  colorTag?: string; // Configurable color tags
+  hashtags?: string[]; // Tag array parsed or set during vibe creation
+  mood: string;
 }
 
 const VIBE_CAPTIONS = [
@@ -475,6 +482,7 @@ export function generateVibePost(idx: number, userMood: string): VibePost {
   const createdAt = Date.now() - hoursAgo * 3600000;
 
   const pulseCount = 1000 + (seed * 8191) % 95000;
+  const likes = pulseCount; // Mirror likes from pulseCount
   const comments   = 100  + (seed * 3571) % 9900;
   const shares     = 50   + (seed * 2017) % 4950;
   const saves      = 80   + (seed * 1597) % 3920;
@@ -482,16 +490,33 @@ export function generateVibePost(idx: number, userMood: string): VibePost {
   const moodOptions = ['funny','trending','chill','inspire','unhinged'];
   const mood = moodOptions[idx % moodOptions.length];
 
+  // Randomly determine post type
+  const typeRoll = seededRand(seed + 41);
+  const type: 'text' | 'image' | 'video' = typeRoll < 0.3 ? 'text' : typeRoll < 0.65 ? 'image' : 'video';
+
+  const caption = VIBE_CAPTIONS[idx % VIBE_CAPTIONS.length];
+  const hashtags = caption.match(/#[a-zA-Z0-9]+/g) || [];
+
+  // Solid background colors for text vibes
+  const swatches = ['#FFD166', '#FF6B6B', '#4ECDC4', '#A78BFA', '#F472B6', '#34D399', '#60A5FA'];
+  const colorTag = type === 'text' ? swatches[idx % swatches.length] : undefined;
+  const bgColor = colorTag;
+
+  const thumbnail = type === 'text' ? '' : `https://picsum.photos/seed/vibe${idx}/500/900`;
+  const videoSrc = type === 'video' ? 'https://assets.mixkit.co/videos/preview/mixkit-stars-in-space-background-1611-large.mp4' : undefined;
+
   const vibe: Partial<VibePost> = {
     id: `vibe_${idx}`,
+    type,
     user: userObj.user,
     handle: userObj.handle,
     avatar: userObj.avatar,
-    thumbnail: `https://picsum.photos/seed/vibe${idx}/500/900`,
-    caption: VIBE_CAPTIONS[idx % VIBE_CAPTIONS.length],
+    thumbnail,
+    caption,
     audio: VIBE_AUDIO[idx % VIBE_AUDIO.length],
     mood,
     createdAt,
+    likes,
     pulseCount,
     comments,
     shares,
@@ -506,6 +531,12 @@ export function generateVibePost(idx: number, userMood: string): VibePost {
     creatorTier,
     watchTimeScore: seededRand(seed + 13) * 100,
     rewatchRatio: seededRand(seed + 17),
+    videoSrc,
+    colorTag,
+    bgColor,
+    hashtags,
+    isLiked: false,
+    isSaved: false,
   };
 
   const vibeScore = calculateVibeScore(vibe, userMood);
