@@ -402,6 +402,7 @@ export interface VibePost {
   rewatchRatio: number;   // simulated
   videoSrc?: string; // set only for real user-uploaded clips (data URL); mock vibes use `thumbnail` instead
   audioUrl?: string; // optional music track URL for audio playback on image/vibe posts
+  duration?: number; // optional custom play duration in seconds (e.g. 15 or 30)
 }
 
 const VIBE_CAPTIONS = [

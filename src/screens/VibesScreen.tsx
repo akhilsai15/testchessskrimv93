@@ -160,9 +160,14 @@ function VibeCard({
   const [commentsList, setCommentsList] = useState<any[]>([]);
 
   // Interactive timeline seeker state
-  const [progress, setProgress] = useState(0); // 0 to 100
   const [duration, setDuration] = useState(15); // default duration
   const [currentTime, setCurrentTime] = useState(0);
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  useEffect(() => {
+    setCurrentTime(0);
+    setDuration(vibe?.duration || 15);
+  }, [isActive, vibe?.id, vibe?.duration]);
 
   useEffect(() => {
     try {
@@ -437,16 +442,18 @@ function VibeCard({
       setCurrentTime(prev => {
         const next = prev + 0.1;
         if (next >= duration) {
-          setProgress(0);
-          return 0; // loop
+          // Trigger next outside the state update call stack using setTimeout to prevent rendering-phase state updates in VibesScreen
+          setTimeout(() => {
+            onNext();
+          }, 0);
+          return 0; // go to beginning
         }
-        setProgress((next / duration) * 100);
         return next;
       });
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isPlaying, isActive, duration, vibe.videoSrc]);
+  }, [isPlaying, isActive, duration, vibe.videoSrc, onNext]);
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
@@ -454,7 +461,6 @@ function VibeCard({
       const dur = videoRef.current.duration || 15;
       setCurrentTime(cur);
       setDuration(dur);
-      setProgress((cur / dur) * 100);
     }
   };
 
@@ -471,7 +477,6 @@ function VibeCard({
     const clickX = e.clientX - rect.left;
     const width = rect.width;
     const newPercent = Math.min(Math.max((clickX / width) * 100, 0), 100);
-    setProgress(newPercent);
     const newTime = (newPercent / 100) * duration;
     setCurrentTime(newTime);
     if (videoRef.current) {
@@ -558,7 +563,6 @@ function VibeCard({
               ref={videoRef}
               src={vibe.videoSrc}
               autoPlay={isActive}
-              loop
               muted={muted}
               playsInline
               className="absolute inset-0 w-full h-full object-contain"
@@ -567,6 +571,7 @@ function VibeCard({
               transition={{ duration: 0.4 }}
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
+              onEnded={onNext}
             />
           ) : (
             <motion.img
@@ -938,6 +943,7 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
   const [mediaKind, setMediaKind] = useState<'image' | 'video' | null>(null);
   const [mood, setMood] = useState<string>(getDefaultMood());
   const [music, setMusic] = useState<{ url: string; title: string; start_ms: number } | null>(null);
+  const [imageDuration, setImageDuration] = useState<number>(15);
   const [isReading, setIsReading] = useState(false);
   const [showMoodPicker, setShowMoodPicker] = useState(false);
   const [showMusicPicker, setShowMusicPicker] = useState(false);
@@ -949,6 +955,7 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
     setMediaKind(null);
     setMood(getDefaultMood());
     setMusic(null);
+    setImageDuration(15);
     setIsReading(false);
     setShowMoodPicker(false);
     setShowMusicPicker(false);
@@ -986,6 +993,7 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
       caption,
       audio: music?.title || 'Original Audio 🎤',
       audioUrl: music?.url || undefined,
+      duration: mediaKind === 'image' ? imageDuration : undefined,
       mood,
       createdAt: Date.now(),
       pulseCount: 0,
@@ -1091,6 +1099,28 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
                 rows={2}
                 className="w-full bg-transparent text-white text-[15px] leading-relaxed placeholder-white/25 resize-none outline-none"
               />
+
+              {mediaKind === 'image' && (
+                <div className="mt-2 flex flex-col gap-2 bg-white/5 border border-white/5 rounded-2xl p-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Vibe Duration (seconds)</span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setImageDuration(15)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${imageDuration === 15 ? 'bg-[#B026FF] text-white shadow-lg shadow-[#B026FF]/20' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+                    >
+                      15s Playback
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageDuration(30)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${imageDuration === 30 ? 'bg-[#B026FF] text-white shadow-lg shadow-[#B026FF]/20' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+                    >
+                      30s Playback
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Mood + Music — same controls as Pulse, so a creator's vocabulary
