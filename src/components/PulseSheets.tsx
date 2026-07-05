@@ -485,27 +485,28 @@ const SOCIAL_PLATFORMS = [
   { id: 'see_all', label: 'See all', bg: 'rgba(255,255,255,0.1)', border: true, action: (url) => { if (typeof navigator !== 'undefined' && navigator.share) { navigator.share({ title: 'Check out this Pulse!', url: url }).catch(() => {}); } }, svg: <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-white fill-none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> } ];
 
 export function PulseSendSheet({
-  isOpen, onClose, post, onShareComplete, currentUser
+  isOpen, onClose, post, onShareComplete, currentUser, isSpark = false
 }: {
   isOpen: boolean; onClose: () => void; post: any;
   onShareComplete: (type: string, message: string) => void;
   currentUser?: any;
+  isSpark?: boolean;
 }) {
   const handleShareAsSpark = () => {
     if (!post) return;
     try {
       const stored = JSON.parse(localStorage.getItem('skrimchat_sparks') || '[]');
-      const sparkId = `postspark_${post.id}`;
+      const sparkId = isSpark ? post.id : `postspark_${post.id}`;
       if (!stored.some((s: any) => s.id === sparkId)) {
         const thumbnail = post.image || post.images?.[0] || null;
         stored.unshift({
           id: sparkId, user: currentUser, isOwn: true, isRepost: true,
-          repostedFrom: post.handle, createdAt: Date.now(),
+          repostedFrom: post.handle || post.user?.username || 'user', createdAt: Date.now(),
           expiresAt: Date.now() + 24 * 60 * 60 * 1000,
           hasViewed: false, views: 0, energy: 'COLD',
           reactions: { pulse: 0, blaze: 0, vibe: 0 },
           type: thumbnail ? 'image' : 'text', image: thumbnail,
-          caption: post.caption || post.text || '', sourcePostId: post.id,
+          caption: post.caption || post.text || '', sourcePostId: isSpark ? null : post.id,
         });
         localStorage.setItem('skrimchat_sparks', JSON.stringify(stored));
         window.dispatchEvent(new CustomEvent('skrimchat_spark_reposted', { detail: stored[0] }));
@@ -523,8 +524,8 @@ export function PulseSendSheet({
   const [showAllPlatforms, setShowAllPlatforms] = useState(false);
 
   const shareUrl = typeof window !== 'undefined'
-    ? `skrim.chat/pulse/${post?.id || 'post'}`
-    : `skrim.chat/pulse/post`;
+    ? `skrim.chat/${isSpark ? 'spark' : 'pulse'}/${post?.id || 'post'}`
+    : `skrim.chat/${isSpark ? 'spark' : 'pulse'}/post`;
 
   const allContacts = mockUsers.slice(0, 12).map(u => ({
     id: u.id,
@@ -577,10 +578,10 @@ export function PulseSendSheet({
     if (option === 'Connect') {
       setActiveView('connect');
     } else if (option === 'your story') {
-      close('✨ Added to your Pulse!');
+      close(isSpark ? '✨ Added to your Spark!' : '✨ Added to your Pulse!');
     } else if (option === 'Arattai') {
       handleCopyLink();
-      close('💬 Shared to Arattai!');
+      close(isSpark ? '💬 Shared Spark to Arattai!' : '💬 Shared to Arattai!');
     } else if (option === 'Copy') {
       handleCopyLink();
     } else {
@@ -606,7 +607,22 @@ export function PulseSendSheet({
         const username = contact?.username || userId;
         sentToNames.push(username);
         
-        const message = {
+        const message = isSpark ? {
+          id: `sparkshare_${post.id}_${Date.now()}_${username}`,
+          sender: 'me',
+          type: 'spark_share',
+          sparkId: post.id,
+          sparkThumbnail: thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500',
+          sparkCaption: post.caption || post.text || '',
+          isRepost: post.isRepost || false,
+          sparkUser: { 
+            user: post.user?.displayName || post.user?.username || post.user || 'User', 
+            avatar: post.user?.avatar || 'https://i.pravatar.cc/150?u=user' 
+          },
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: 'sent',
+          timestamp: Date.now(),
+        } : {
           id: `postshare_${post.id}_${Date.now()}_${username}`,
           sender: 'me',
           type: 'post_share',
@@ -628,7 +644,7 @@ export function PulseSendSheet({
       window.dispatchEvent(new CustomEvent('skrimchat_custom_chats_updated'));
 
       const label = selectedContacts.length === 1 ? `@${sentToNames[0]}` : `${selectedContacts.length} people`;
-      close(`💬 Pulse sent to ${label}!`);
+      close(isSpark ? `💬 Spark sent to ${label}!` : `💬 Pulse sent to ${label}!`);
     } catch (e) {
       close('💬 Sent!');
     }
@@ -653,7 +669,15 @@ export function PulseSendSheet({
               <div className="px-5 flex flex-col flex-1 min-h-0 pt-4 overflow-y-auto overflow-x-hidden no-scrollbar" style={{ paddingBottom: 'env(safe-area-inset-bottom, 20px)' }}>
                 <div className="flex justify-between items-center mb-5 sticky top-0 bg-[#141414] py-2 z-10 border-b border-white/5 pb-4 -mx-5 px-5">
                   <h3 className="font-bold text-white text-lg flex items-center gap-2">
-                    <Share2 className="w-5 h-5 text-[#B026FF]" /> Share Pulse ⚡
+                    {isSpark ? (
+                      <>
+                        <Sparkles className="w-5 h-5 text-yellow-500" /> Share Spark ✨
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="w-5 h-5 text-[#B026FF]" /> Share Pulse ⚡
+                      </>
+                    )}
                   </h3>
                   <button onClick={onClose} className="p-1.5 bg-white/10 rounded-full hover:bg-white/20 transition-colors">
                     <X className="w-5 h-5 text-white" />
@@ -663,18 +687,20 @@ export function PulseSendSheet({
                 {/* Primary actions */}
                 <div className="flex flex-col gap-2 mb-5">
                   {/* Share as Spark */}
-                  <button
-                    onClick={handleShareAsSpark}
-                    className="w-full flex items-center gap-4 p-3.5 rounded-xl bg-yellow-500/10 border border-yellow-500/30 hover:bg-yellow-500/20 transition-colors"
-                  >
-                    <div className="w-11 h-11 rounded-full bg-yellow-500/30 flex items-center justify-center shrink-0">
-                      <Sparkles className="w-5 h-5 text-yellow-500" />
-                    </div>
-                    <div className="text-left">
-                      <div className="text-white font-bold">Share as Spark</div>
-                      <div className="text-yellow-500/70 text-xs mt-0.5">Post to your 24h Spark story</div>
-                    </div>
-                  </button>
+                  {(!isSpark || (post && post.user?.username !== currentUser?.username && !post.isOwn)) && (
+                    <button
+                      onClick={handleShareAsSpark}
+                      className="w-full flex items-center gap-4 p-3.5 rounded-xl bg-yellow-500/10 border border-yellow-500/30 hover:bg-yellow-500/20 transition-colors"
+                    >
+                      <div className="w-11 h-11 rounded-full bg-yellow-500/30 flex items-center justify-center shrink-0">
+                        <Sparkles className="w-5 h-5 text-yellow-500" />
+                      </div>
+                      <div className="text-left">
+                        <div className="text-white font-bold">{isSpark ? "Re-share to Spark" : "Share as Spark"}</div>
+                        <div className="text-yellow-500/70 text-xs mt-0.5">Post to your 24h Spark story</div>
+                      </div>
+                    </button>
+                  )}
 
                   {/* Send in Connect — to a specific user */}
                   <button
@@ -791,7 +817,7 @@ export function PulseSendSheet({
                           </div>
                         </div>
                         <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? "bg-[#B026FF] border-[#B026FF]" : "border-white/20"}`}>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+                           {isSelected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
                         </div>
                       </button>
                     );
@@ -804,8 +830,8 @@ export function PulseSendSheet({
                   className={`w-full py-3.5 rounded-full font-bold shadow-lg transition-all shrink-0 ${selectedContacts.length > 0 ? "bg-gradient-to-r from-[#B026FF] to-[#00F0FF] text-white hover:opacity-90" : "bg-white/10 text-white/40 cursor-not-allowed"}`}
                 >
                   {selectedContacts.length > 0
-                    ? `Send to ${selectedContacts.length} ⚡`
-                    : "Send ⚡"}
+                    ? `Send to ${selectedContacts.length} ${isSpark ? "✨" : "⚡"}`
+                    : `Send ${isSpark ? "✨" : "⚡"}`}
                 </button>
               </div>
             )}

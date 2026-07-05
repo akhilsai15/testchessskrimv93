@@ -2324,6 +2324,8 @@ export function SparkViewer({
             isOpen={true}
             onClose={() => setActiveSheet(null)}
             post={spark}
+            isSpark={true}
+            currentUser={currentUser}
             onShareComplete={() => setActiveSheet(null)}
           />
         ) : null}
