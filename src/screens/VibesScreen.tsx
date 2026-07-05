@@ -9,7 +9,7 @@ import { assembleVibesFeed, getDefaultMood, MOODS, MOCK_USERS, type VibePost } f
 import { PulseSendSheet } from '../components/PulseSheets';
 import { incrementStat } from '../lib/mock/achievementEngine';
 import { useCurrentUser } from '../hooks/useCurrentUser';
-import { MusicPicker } from '../components/MusicPicker';
+import { MusicPicker, CURATED_TRACKS } from '../components/MusicPicker';
 import { useSavedStore } from '../store/savedStore';
 import { ReactionRow } from '../components/ReactionRow';
 import { useNavigate } from 'react-router-dom';
@@ -285,6 +285,7 @@ function VibeCard({
   const [isPlaying, setIsPlaying] = useState(true);
   const [showPlayOverlay, setShowPlayOverlay] = useState<'play' | 'pause' | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const tapTimeout = useRef<any>(null);
   const overlayTimeout = useRef<any>(null);
 
@@ -312,6 +313,58 @@ function VibeCard({
       videoRef.current.pause();
     }
   }, [isPlaying, isActive]);
+
+  // Image-only Vibes Background Music Sync
+  useEffect(() => {
+    // If we have video, it plays its own sound
+    if (vibe.videoSrc) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      return;
+    }
+
+    // Resolve matching track URL
+    const getAudioUrl = () => {
+      if (vibe.audioUrl) return vibe.audioUrl;
+      const title = vibe.audio || '';
+      const found = CURATED_TRACKS.find(t => 
+        title.toLowerCase().includes(t.title.toLowerCase()) || 
+        t.title.toLowerCase().includes(title.toLowerCase())
+      );
+      if (found) return found.url;
+      
+      // Deterministic hash based fallback so all mock image vibes have background audio
+      const hash = title.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const fallbackTrack = CURATED_TRACKS[hash % CURATED_TRACKS.length];
+      return fallbackTrack?.url;
+    };
+
+    const audioUrl = getAudioUrl();
+    if (!audioUrl) return;
+
+    if (!audioRef.current) {
+      audioRef.current = new Audio(audioUrl);
+      audioRef.current.loop = true;
+    } else if (audioRef.current.src !== audioUrl) {
+      audioRef.current.src = audioUrl;
+    }
+
+    // Sync volume/mute
+    audioRef.current.muted = muted;
+
+    if (isPlaying && isActive) {
+      audioRef.current.play().catch(() => {});
+    } else {
+      audioRef.current.pause();
+    }
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, [isPlaying, isActive, muted, vibe.videoSrc, vibe.audio, vibe.audioUrl]);
 
   useEffect(() => {
     return () => {
@@ -932,6 +985,7 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
       thumbnail: mediaKind === 'image' ? mediaUrl! : '',
       caption,
       audio: music?.title || 'Original Audio 🎤',
+      audioUrl: music?.url || undefined,
       mood,
       createdAt: Date.now(),
       pulseCount: 0,

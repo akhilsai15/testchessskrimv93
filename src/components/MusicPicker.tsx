@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Search, Music, Upload, Play, Pause, Check, AlertTriangle, ChevronRight, TrendingUp, Flame } from 'lucide-react';
 
-interface Track {
+export interface Track {
   id: string;
   title: string;
   artist: string;
@@ -26,7 +26,7 @@ interface MusicPickerProps {
 // unlike the previous bensound.com links (which 404/block hotlinking from
 // other domains, which is why Play never actually produced sound), these
 // are served with no referer/CORS restriction, so they play directly here.
-const CURATED_TRACKS: Track[] = [
+export const CURATED_TRACKS: Track[] = [
   // Chill
   { id: 'j1', title: 'Acoustic Breeze', artist: 'Benjamin Tissot', duration: 120, url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', category: 'Chill', playCount: 48200 },
   { id: 'j2', title: 'Sunny', artist: 'Benjamin Tissot', duration: 130, url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', category: 'Chill', playCount: 31500 },
