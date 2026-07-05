@@ -4,6 +4,7 @@ import {
   Zap, MessageCircle, Share2, Bookmark, Volume2, VolumeX,
   Music, Heart, Play, Pause, ChevronUp, ChevronDown, Search, X,
   MoreHorizontal, Plus, Images, Video, RefreshCw, Send, ChevronLeft, ChevronRight,
+  Hash, Tag,
 } from 'lucide-react';
 import { assembleVibesFeed, getDefaultMood, MOODS, MOCK_USERS, type VibePost } from '../lib/mock/skrimAlgorithm';
 import { PulseSendSheet } from '../components/PulseSheets';
@@ -348,17 +349,24 @@ function VibeCard({
     const audioUrl = getAudioUrl();
     if (!audioUrl) return;
 
+    let isNewAudio = false;
     if (!audioRef.current) {
       audioRef.current = new Audio(audioUrl);
       audioRef.current.loop = true;
+      isNewAudio = true;
     } else if (audioRef.current.src !== audioUrl) {
       audioRef.current.src = audioUrl;
+      isNewAudio = true;
     }
 
     // Sync volume/mute
     audioRef.current.muted = muted;
 
     if (isPlaying && isActive) {
+      if (isNewAudio || audioRef.current.paused) {
+        const startTime = (vibe.start_ms || 0) / 1000;
+        audioRef.current.currentTime = startTime;
+      }
       audioRef.current.play().catch(() => {});
     } else {
       audioRef.current.pause();
@@ -369,7 +377,14 @@ function VibeCard({
         audioRef.current.pause();
       }
     };
-  }, [isPlaying, isActive, muted, vibe.videoSrc, vibe.audio, vibe.audioUrl]);
+  }, [isPlaying, isActive, muted, vibe.videoSrc, vibe.audio, vibe.audioUrl, vibe.start_ms]);
+
+  // Whenever the playhead loops or slide changes (currentTime === 0), reset audio to starting trimmed time
+  useEffect(() => {
+    if (currentTime === 0 && audioRef.current && isPlaying && isActive) {
+      audioRef.current.currentTime = (vibe.start_ms || 0) / 1000;
+    }
+  }, [currentTime, isPlaying, isActive, vibe.start_ms]);
 
   useEffect(() => {
     return () => {
@@ -482,6 +497,9 @@ function VibeCard({
     if (videoRef.current) {
       videoRef.current.currentTime = newTime;
     }
+    if (audioRef.current) {
+      audioRef.current.currentTime = (vibe.start_ms || 0) / 1000 + newTime;
+    }
     setToastMessage(`Skipped to ${newTime.toFixed(1)}s! ⚡`);
     setTimeout(() => setToastMessage(''), 1500);
   };
@@ -571,7 +589,13 @@ function VibeCard({
               transition={{ duration: 0.4 }}
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
-              onEnded={onNext}
+              onEnded={() => {
+                onNext();
+                if (videoRef.current) {
+                  videoRef.current.currentTime = 0;
+                  videoRef.current.play().catch(() => {});
+                }
+              }}
             />
           ) : (
             <motion.img
@@ -927,11 +951,16 @@ function VibeCard({
   );
 }
 
+const POST_BG_COLORS = [
+  '#FFD166', '#FF6B6B', '#4ECDC4', '#A78BFA', '#F472B6',
+  '#34D399', '#60A5FA', '#FBBF24', '#FB7185', '#5EEAD4',
+];
+
 // ─── Vibe Create Sheet ─────────────────────────────────────────
 // Same shape as Pulse's composer (photo/video + caption + mood + music),
 // but tailored to Vibes: exactly one media item (a Vibe IS the clip, not
-// an optional attachment), and posting drops it straight into the feed
-// instead of going through any approval/processing step (this is a mock).
+// an optional attachment), or a text-only Vibe with solid color backgrounds,
+// and posting drops it straight into the feed.
 function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
   isOpen: boolean;
   onClose: () => void;
@@ -947,7 +976,10 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
   const [isReading, setIsReading] = useState(false);
   const [showMoodPicker, setShowMoodPicker] = useState(false);
   const [showMusicPicker, setShowMusicPicker] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [bgColor, setBgColor] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const reset = () => {
     setCaption('');
@@ -959,6 +991,8 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
     setIsReading(false);
     setShowMoodPicker(false);
     setShowMusicPicker(false);
+    setShowColorPicker(false);
+    setBgColor(null);
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -974,12 +1008,37 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
     r.onload = () => {
       setMediaUrl(r.result as string);
       setMediaKind(kind);
+      setBgColor(null); // Clear color tag if media is uploaded
       setIsReading(false);
     };
     r.readAsDataURL(file);
   };
 
-  const canPost = !!mediaUrl;
+  // Autosize the textarea
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [caption, isOpen]);
+
+  const insertHashtag = () => {
+    const el = textareaRef.current;
+    if (!el) { setCaption(t => (t ? t + ' #' : '#')); return; }
+    const start = el.selectionStart ?? caption.length;
+    const end = el.selectionEnd ?? caption.length;
+    const needsSpaceBefore = start > 0 && !/\s/.test(caption[start - 1] ?? ' ');
+    const insert = `${needsSpaceBefore ? ' ' : ''}#`;
+    const next = caption.slice(0, start) + insert + caption.slice(end);
+    setCaption(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + insert.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  const canPost = caption.trim().length > 0 || !!mediaUrl;
 
   const handlePost = () => {
     if (!canPost) return;
@@ -993,7 +1052,8 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
       caption,
       audio: music?.title || 'Original Audio 🎤',
       audioUrl: music?.url || undefined,
-      duration: mediaKind === 'image' ? imageDuration : undefined,
+      duration: mediaKind === 'image' ? imageDuration : (mediaKind === null ? 15 : undefined),
+      start_ms: music ? music.start_ms : undefined,
       mood,
       createdAt: Date.now(),
       pulseCount: 0,
@@ -1007,6 +1067,7 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
       watchTimeScore: 0,
       rewatchRatio: 0,
       ...(mediaKind === 'video' ? { videoSrc: mediaUrl } : {}),
+      ...(bgColor ? { bgColor } : {}),
     } as VibePost;
 
     // Persist alongside mock data so a refresh doesn't lose it, following
@@ -1053,8 +1114,39 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
-              {/* Media — Vibes are video-first, so this is the main event,
-                  not an optional attachment like in the Pulse composer. */}
+              {/* User row */}
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0">
+                  <img src={currentUser?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80'} alt="" className="w-full h-full object-cover" />
+                </div>
+                <span className="text-white font-semibold text-sm">{currentUser?.username || 'You'}</span>
+              </div>
+
+              {/* Text Area (with Color Tag / Transparent support) */}
+              {bgColor ? (
+                <div className="rounded-2xl p-4" style={{ backgroundColor: bgColor }}>
+                  <textarea
+                    ref={textareaRef}
+                    autoFocus
+                    value={caption}
+                    onChange={e => setCaption(e.target.value)}
+                    placeholder="What's happening?"
+                    rows={3}
+                    className="w-full bg-transparent text-black text-[19px] font-semibold leading-relaxed placeholder-black/40 resize-none outline-none min-h-[60px]"
+                  />
+                </div>
+              ) : (
+                <textarea
+                  ref={textareaRef}
+                  value={caption}
+                  onChange={e => setCaption(e.target.value)}
+                  placeholder="What's happening?"
+                  rows={2}
+                  className="w-full bg-transparent text-white text-[15px] leading-relaxed placeholder-white/25 resize-none outline-none min-h-[40px]"
+                />
+              )}
+
+              {/* Media Preview or big upload buttons (if no Color Tag) */}
               {mediaUrl ? (
                 <div className="relative w-full aspect-[9/16] max-h-[42vh] mx-auto rounded-2xl overflow-hidden bg-black">
                   {mediaKind === 'video' ? (
@@ -1073,7 +1165,7 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
                 <div className="flex items-center gap-2 text-white/40 text-xs py-10 justify-center">
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Adding media…
                 </div>
-              ) : (
+              ) : !bgColor ? (
                 <div className="flex gap-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
@@ -1090,15 +1182,7 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
                     <span className="text-xs font-semibold text-white/70">Upload a photo</span>
                   </button>
                 </div>
-              )}
-
-              <textarea
-                value={caption}
-                onChange={e => setCaption(e.target.value)}
-                placeholder="Write a caption…"
-                rows={2}
-                className="w-full bg-transparent text-white text-[15px] leading-relaxed placeholder-white/25 resize-none outline-none"
-              />
+              ) : null}
 
               {mediaKind === 'image' && (
                 <div className="mt-2 flex flex-col gap-2 bg-white/5 border border-white/5 rounded-2xl p-3">
@@ -1123,20 +1207,51 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
               )}
             </div>
 
-            {/* Mood + Music — same controls as Pulse, so a creator's vocabulary
-                for "what kind of post is this" stays consistent app-wide. */}
-            <div className="flex items-center gap-1 px-4 py-3 border-t border-white/8">
+            {/* Attach bar — identical to Pulse, featuring Photo, Video, Color, #Tag, Mood, and Music */}
+            <div className="flex items-center gap-1 px-4 py-3 border-t border-white/8 overflow-x-auto no-scrollbar">
+              {!mediaUrl && !bgColor && (
+                <>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-full text-[#B026FF] hover:bg-[#B026FF]/10 transition-colors text-xs font-semibold shrink-0"
+                  >
+                    <Images className="w-5 h-5" /> Photos
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-full text-[#00F0FF] hover:bg-[#00F0FF]/10 transition-colors text-xs font-semibold shrink-0"
+                  >
+                    <Video className="w-5 h-5" /> Video
+                  </button>
+                </>
+              )}
+              {!mediaUrl && (
+                <button
+                  onClick={() => setShowColorPicker(true)}
+                  className={`flex items-center gap-1.5 px-2.5 py-2 rounded-full transition-colors text-xs font-semibold shrink-0 ${bgColor ? 'bg-white/10' : 'text-white/60 hover:bg-white/10 hover:text-white'}`}
+                  style={bgColor ? { color: bgColor } : undefined}
+                >
+                  <span className="w-5 h-5 rounded-full border border-white/30 shrink-0" style={{ backgroundColor: bgColor || 'transparent' }} />
+                  Color
+                </button>
+              )}
+              <button
+                onClick={insertHashtag}
+                className="flex items-center gap-1.5 px-2.5 py-2 rounded-full text-white/60 hover:bg-white/10 hover:text-white transition-colors text-xs font-semibold shrink-0"
+              >
+                <Hash className="w-5 h-5" /> #Tag
+              </button>
               <button
                 onClick={() => setShowMoodPicker(true)}
-                className="flex items-center gap-1.5 px-2.5 py-2 rounded-full text-white/60 hover:bg-white/10 hover:text-white transition-colors text-xs font-semibold"
+                className="flex items-center gap-1.5 px-2.5 py-2 rounded-full text-white/60 hover:bg-white/10 hover:text-white transition-colors text-xs font-semibold shrink-0"
               >
                 <span className="text-base leading-none">{MOODS.find(m => m.id === mood)?.emoji}</span> Mood
               </button>
               <button
                 onClick={() => setShowMusicPicker(true)}
-                className={`flex items-center gap-1.5 px-2.5 py-2 rounded-full transition-colors text-xs font-semibold ${music ? 'text-[#00F0FF] bg-[#00F0FF]/10' : 'text-white/60 hover:bg-white/10 hover:text-white'}`}
+                className={`flex items-center gap-1.5 px-2.5 py-2 rounded-full transition-colors text-xs font-semibold shrink-0 ${music ? 'text-[#00F0FF] bg-[#00F0FF]/10' : 'text-white/60 hover:bg-white/10 hover:text-white'}`}
               >
-                <Music className="w-5 h-5" /> {music ? music.title : 'Music'}
+                <Music className="w-5 h-5" /> Music
               </button>
             </div>
           </motion.div>
@@ -1149,6 +1264,46 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
             onChange={handleFileChange}
           />
 
+          {/* Color picker sheet popover */}
+          <AnimatePresence>
+            {showColorPicker && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-black/60 z-[95]"
+                  onClick={() => setShowColorPicker(false)}
+                />
+                <motion.div
+                  initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+                  transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                  className="fixed bottom-0 left-0 right-0 z-[96] bg-[#0d0010] rounded-t-3xl border-t border-white/10 px-5 pb-8 pt-3"
+                >
+                  <div className="flex justify-center pb-3"><div className="w-10 h-1 rounded-full bg-white/20" /></div>
+                  <h3 className="text-white font-bold text-base mb-4">Pick a background color</h3>
+                  <div className="grid grid-cols-5 gap-3">
+                    {POST_BG_COLORS.map(c => (
+                      <button
+                        key={c}
+                        onClick={() => { setBgColor(c); setShowColorPicker(false); }}
+                        className={`aspect-square rounded-full border-2 transition-all ${bgColor === c ? 'border-white scale-110' : 'border-transparent'}`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                  {bgColor && (
+                    <button
+                      onClick={() => { setBgColor(null); setShowColorPicker(false); }}
+                      className="w-full mt-5 py-3 rounded-full bg-white/5 border border-white/10 text-white/60 text-sm font-semibold"
+                    >
+                      Remove color
+                    </button>
+                  )}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+
+          {/* Mood picker sheet popover */}
           <AnimatePresence>
             {showMoodPicker && (
               <>
@@ -1184,8 +1339,14 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
           <MusicPicker
             isOpen={showMusicPicker}
             onClose={() => setShowMusicPicker(false)}
-            onSelect={(m) => { setMusic(m); setShowMusicPicker(false); }}
-            currentMusic={music}
+            onSelect={(m) => {
+              setMusic(m);
+              if (m?.duration_s) {
+                setImageDuration(m.duration_s);
+              }
+              setShowMusicPicker(false);
+            }}
+            currentMusic={music ? { ...music, duration_s: imageDuration } : null}
             context="Vibe"
           />
         </>
@@ -1283,7 +1444,16 @@ export default function VibesScreen() {
       if (activeFilter === 'foryou' && sessionUserVibes.length > 0) {
         initial = [...sessionUserVibes, ...initial];
       }
-      setVibes(initial);
+
+      // De-duplicate initial set of vibes to prevent key collisions in React
+      const seen = new Set<string>();
+      const uniqueInitial = initial.filter(v => {
+        if (seen.has(v.id)) return false;
+        seen.add(v.id);
+        return true;
+      });
+
+      setVibes(uniqueInitial);
       setLoading(false);
     }, 600);
   }, [mood, activeFilter, userVibes, refreshOffsets, sessionUserVibes]);
@@ -1298,7 +1468,17 @@ export default function VibesScreen() {
         const rOffset = refreshOffsets[activeFilter] ?? 0;
         const offset = baseOffset + rOffset + vibes.length;
         const more = assembleVibesFeed(mood, offset, 8);
-        setVibes(prev => [...prev, ...more]);
+        
+        setVibes(prev => {
+          const combined = [...prev, ...more];
+          const seen = new Set<string>();
+          return combined.filter(v => {
+            if (seen.has(v.id)) return false;
+            seen.add(v.id);
+            return true;
+          });
+        });
+        
         setLoadingMore(false);
       }, 400);
     }
