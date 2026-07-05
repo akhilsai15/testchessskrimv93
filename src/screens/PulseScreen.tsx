@@ -2632,8 +2632,10 @@ export default function PulseScreen() {
         // front of page 0 — same idea as a real timeline, where your own
         // reposts always surface above the ranked feed.
         let reposts: any[] = [];
+        let customPosts: any[] = [];
         try {
           reposts = JSON.parse(localStorage.getItem('skrimchat_reposts') || '[]');
+          customPosts = JSON.parse(localStorage.getItem('skrimchat_custom_posts') || '[]');
         } catch (e) {}
         // Filter out posts from muted or blocked users
         const muted = getMutedUsers();
@@ -2644,7 +2646,8 @@ export default function PulseScreen() {
         };
         const filteredSynced = synced.filter(filterPost);
         const filteredReposts = reposts.filter(filterPost);
-        setPosts(page === 0 ? [...filteredReposts, ...filteredSynced] : filteredSynced);
+        const filteredCustomPosts = customPosts.filter(filterPost);
+        setPosts(page === 0 ? [...filteredCustomPosts, ...filteredReposts, ...filteredSynced] : filteredSynced);
         setLoading(false);
       }
     }, append ? 700 : 900);
@@ -2725,8 +2728,10 @@ export default function PulseScreen() {
     const myReactions: Record<string,string> = JSON.parse(localStorage.getItem('skrimchat_my_reactions') || '{}');
     const reactionCounts: Record<string, Record<string,number>> = JSON.parse(localStorage.getItem('skrimchat_post_reactions') || '{}');
     let reposts: any[] = [];
+    let customPosts: any[] = [];
     try {
       reposts = JSON.parse(localStorage.getItem('skrimchat_reposts') || '[]');
+      customPosts = JSON.parse(localStorage.getItem('skrimchat_custom_posts') || '[]');
     } catch (e) {}
 
     // Filter out posts from muted or blocked users
@@ -2749,12 +2754,13 @@ export default function PulseScreen() {
     })).filter(filterPost);
 
     const filteredReposts = reposts.filter(filterPost);
+    const filteredCustomPosts = customPosts.filter(filterPost);
 
     // Grab any pending simulated live pulses and prepend them!
     const pending = pendingNewPulsesRef.current;
     pendingNewPulsesRef.current = []; // Clear them since we are displaying them now!
 
-    setPosts([...pending, ...filteredReposts, ...freshSynced]);
+    setPosts([...pending, ...filteredCustomPosts, ...filteredReposts, ...freshSynced]);
     setNewPostsCount(0);
   };
 
@@ -3256,6 +3262,13 @@ export default function PulseScreen() {
         currentUser={currentUser}
         draft={activeDraftId ? drafts.find(d => d.id === activeDraftId) : null}
         onPost={(newPost: any) => {
+          try {
+            const stored = JSON.parse(localStorage.getItem('skrimchat_custom_posts') || '[]');
+            localStorage.setItem('skrimchat_custom_posts', JSON.stringify([newPost, ...stored]));
+            window.dispatchEvent(new CustomEvent('skrimchat_custom_posts_updated'));
+          } catch (e) {
+            console.error('Error saving custom post to localStorage:', e);
+          }
           setPosts(prev => [newPost, ...prev]);
           setIsPulseCreateOpen(false);
           setActiveDraftId(null);

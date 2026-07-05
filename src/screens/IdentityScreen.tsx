@@ -260,8 +260,23 @@ export default function IdentityScreen() {
   }, [user, isEditing]);
 
   useEffect(() => {
-    // Load user's mocked posts
-    setPosts(mockPosts.slice(0, 6));
+    // Load user's mocked posts along with custom posts
+    const loadUserPosts = () => {
+      let customPosts: any[] = [];
+      try {
+        customPosts = JSON.parse(localStorage.getItem('skrimchat_custom_posts') || '[]');
+      } catch (e) {}
+      
+      const updatedCustom = customPosts.map(p => ({
+        ...p,
+        user: user?.fullName || user?.displayName || 'You',
+        handle: user?.username ? `@${user.username.replace('@', '')}` : p.handle || '@you',
+        avatar: user?.avatar || p.avatar || '',
+      }));
+      setPosts([...updatedCustom, ...mockPosts.slice(0, 6)]);
+    };
+
+    loadUserPosts();
     
     // Always call hydrate on mount to sync with localStorage in case it changed externally
     hydrate();
@@ -279,11 +294,15 @@ export default function IdentityScreen() {
     };
     window.addEventListener('skrimchat_post_reposted', onReposted);
 
+    // Refresh custom posts when updated
+    window.addEventListener('skrimchat_custom_posts_updated', loadUserPosts);
+
     return () => {
       window.removeEventListener('skrimchat_post_saved', onSaved);
       window.removeEventListener('skrimchat_post_reposted', onReposted);
+      window.removeEventListener('skrimchat_custom_posts_updated', loadUserPosts);
     };
-  }, []);
+  }, [user?.username]);
 
   useEffect(() => {
     const allContent = [...mockReels, ...mockPosts];
@@ -837,7 +856,28 @@ export default function IdentityScreen() {
           <div className="grid grid-cols-3 gap-0.5 pt-0.5">
             {(() => {
               const sortedPosts = sortWithPinnedFirst(posts, user?.username || '');
-              const sortedUrls = sortedPosts.map((_, idx) => `https://picsum.photos/400/400?random=${idx+10}`);
+              const sortedUrls = sortedPosts.map((post, idx) => {
+                if (post.type === 'video_thumb' || post.videoSrc) {
+                  return post.videoSrc || post.image || post.thumbnail || '';
+                }
+                if (post.image) return post.image;
+                if (post.images && post.images.length > 0) return post.images[0];
+                if (post.text) {
+                  const bg = post.bgColor || '#110022';
+                  const textContent = post.text.length > 80 ? post.text.substring(0, 80) + '...' : post.text;
+                  const escapedText = textContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+                    <rect width="100%" height="100%" fill="${bg}" />
+                    <foreignObject x="40" y="40" width="320" height="320">
+                      <div xmlns="http://www.w3.org/2000/svg" style="color: white; font-family: sans-serif; font-size: 20px; font-weight: bold; text-align: center; height: 100%; display: flex; align-items: center; justify-content: center; word-break: break-word; overflow: hidden; padding: 10px; box-sizing: border-box;">
+                        ${escapedText}
+                      </div>
+                    </foreignObject>
+                  </svg>`;
+                  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+                }
+                return `https://picsum.photos/400/400?random=${idx+10}`;
+              });
               return sortedPosts.map((post, i) => {
                 const url = sortedUrls[i];
                 const isPinned = pinnedPostIds.includes(post.id);
