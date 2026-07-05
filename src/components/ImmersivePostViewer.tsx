@@ -69,8 +69,24 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
   };
 
   const currentUrl = urls[currentIndex];
+  const currentPost = users && users[currentIndex] ? users[currentIndex] : null;
+  const isTextOnly = !!(currentPost && !currentPost.image && (!currentPost.images || currentPost.images.length === 0) && !currentPost.videoSrc && !currentPost.type?.includes('video') && currentPost.text);
+  
   // Determine author for the current slide
-  const author = users && users[currentIndex] ? users[currentIndex] : user;
+  const authorRaw = currentPost || user;
+  const author = {
+    username: authorRaw?.handle || authorRaw?.username || user?.username || 'user',
+    displayName: authorRaw?.user || authorRaw?.displayName || user?.displayName || user?.fullName || 'User',
+    avatar: authorRaw?.avatar || user?.avatar || 'https://i.pravatar.cc/150'
+  };
+
+  const captionText = currentPost?.caption || currentPost?.text || '';
+  const hasCaption = !!captionText.trim();
+  const showCaption = !currentPost ? true : (hasCaption && !isTextOnly);
+  
+  const musicText = currentPost?.audioContext || 
+                    (typeof currentPost?.music === 'string' ? currentPost.music : currentPost?.music?.name || currentPost?.music?.title) ||
+                    (currentPost ? `Original Audio — ${author.username}` : 'Trending Audio — Mumbai After Hours');
 
   useEffect(() => {
     // Simulate live pulse ripples from center of screen occasionally
@@ -418,41 +434,38 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
                  className="w-full h-full object-cover pointer-events-none"
               />
             ) : (
+              isTextOnly ? (
                 (() => {
-                  const currentPost = users && users[currentIndex] ? users[currentIndex] : null;
-                  const isTextOnly = currentPost && !currentPost.image && (!currentPost.images || currentPost.images.length === 0) && !currentPost.videoSrc && !currentPost.type?.includes('video') && currentPost.text;
-                  if (isTextOnly) {
-                    const textBgColor = currentPost?.bgColor;
-                    const gradients = [
-                      'linear-gradient(to bottom right, #1a0030, #0d001a)',
-                      'linear-gradient(to bottom right, #001a30, #00060d)',
-                      'linear-gradient(to bottom right, #1a1a00, #0d0d00)',
-                      'linear-gradient(to bottom right, #001a0d, #000d06)',
-                      'linear-gradient(to bottom right, #1a000d, #0d0006)',
-                    ];
-                    const textBgGradient = currentPost?.id ? gradients[currentPost.id.charCodeAt(currentPost.id.length - 1) % gradients.length] : gradients[0];
-                    return (
-                      <div 
-                        className="w-full h-full flex items-center justify-center p-8 text-center select-none"
-                        style={{ 
-                          backgroundColor: textBgColor || undefined,
-                          backgroundImage: !textBgColor ? textBgGradient : undefined
-                        }}
-                      >
-                        <p className="text-white font-extrabold text-lg sm:text-xl md:text-2xl break-words leading-relaxed max-w-full overflow-y-auto max-h-full">
-                          {currentPost.text}
-                        </p>
-                      </div>
-                    );
-                  }
+                  const textBgColor = currentPost?.bgColor;
+                  const gradients = [
+                    'linear-gradient(to bottom right, #1a0030, #0d001a)',
+                    'linear-gradient(to bottom right, #001a30, #00060d)',
+                    'linear-gradient(to bottom right, #1a1a00, #0d0d00)',
+                    'linear-gradient(to bottom right, #001a0d, #000d06)',
+                    'linear-gradient(to bottom right, #1a000d, #0d0006)',
+                  ];
+                  const textBgGradient = currentPost?.id ? gradients[currentPost.id.charCodeAt(currentPost.id.length - 1) % gradients.length] : gradients[0];
                   return (
-                    <img
-                      src={currentUrl}
-                      alt="post"
-                      className="w-full h-full object-cover pointer-events-none"
-                    />
+                    <div 
+                      className="w-full h-full flex items-center justify-center p-8 text-center select-none"
+                      style={{ 
+                        backgroundColor: textBgColor || undefined,
+                        backgroundImage: !textBgColor ? textBgGradient : undefined
+                      }}
+                    >
+                      <p className="text-white font-extrabold text-lg sm:text-xl md:text-2xl break-words leading-relaxed max-w-full overflow-y-auto max-h-full">
+                        {currentPost?.text}
+                      </p>
+                    </div>
                   );
                 })()
+              ) : (
+                <img
+                  src={currentUrl}
+                  alt="post"
+                  className="w-full h-full object-cover pointer-events-none"
+                />
+              )
             )}
 
             {showBigPulse && (
@@ -559,14 +572,20 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
         className="absolute bottom-0 w-full p-6 pt-10 z-20 bg-gradient-to-t from-black via-black/90 to-transparent"
       >
         <div className="max-w-2xl mx-auto space-y-4">
-          <div>
-            <p className="text-white text-base mb-1 font-medium leading-tight">Lost in the sauce. What a weekend! ✨🚀</p>
-            <p className="text-[#00F0FF] text-sm font-semibold">#weekendvibes #skrimchat #pulse</p>
-          </div>
+          {showCaption && (
+            <div>
+              <p className="text-white text-base mb-1 font-medium leading-tight">
+                {currentPost ? captionText : "Lost in the sauce. What a weekend! ✨🚀"}
+              </p>
+              {!currentPost && (
+                <p className="text-[#00F0FF] text-sm font-semibold">#weekendvibes #skrimchat #pulse</p>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center gap-2 mb-4 cursor-pointer">
             <Music className="w-4 h-4 text-white/70" />
-            <span className="text-xs text-white/70 font-semibold truncate hover:underline">Trending Audio — Mumbai After Hours</span>
+            <span className="text-xs text-white/70 font-semibold truncate hover:underline">{musicText}</span>
           </div>
           
           <div className="mb-6">
