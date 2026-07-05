@@ -404,6 +404,7 @@ export interface VibePost {
   audioUrl?: string; // optional music track URL for audio playback on image/vibe posts
   duration?: number; // optional custom play duration in seconds (e.g. 15 or 30)
   start_ms?: number; // optional custom play start time offset in milliseconds
+  bgColor?: string; // optional custom background hex string for solid color text-only vibes
 }
 
 const VIBE_CAPTIONS = [

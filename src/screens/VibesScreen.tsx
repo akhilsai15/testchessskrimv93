@@ -579,7 +579,7 @@ function VibeCard({
           {vibe.videoSrc ? (
             <motion.video
               ref={videoRef}
-              src={vibe.videoSrc}
+              src={vibe.videoSrc || undefined}
               autoPlay={isActive}
               muted={muted}
               playsInline
@@ -597,9 +597,18 @@ function VibeCard({
                 }
               }}
             />
+          ) : vibe.bgColor ? (
+            <div 
+              className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 select-text"
+              style={{ backgroundColor: vibe.bgColor }}
+            >
+              <p className="text-[#0D0010] text-2xl md:text-4xl font-black text-center leading-relaxed max-w-xl font-sans tracking-tight">
+                {vibe.caption}
+              </p>
+            </div>
           ) : (
             <motion.img
-              src={vibe.thumbnail}
+              src={vibe.thumbnail || undefined}
               alt=""
               className="absolute inset-0 w-full h-full object-contain"
               initial={{ opacity: 0 }}
@@ -723,7 +732,7 @@ function VibeCard({
           <div className="flex items-center justify-between border-b border-white/5 pb-3">
             <div className="flex items-center gap-3">
               <img 
-                src={vibe.avatar} 
+                src={vibe.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80'} 
                 alt={vibe.user} 
                 onClick={handleProfileClick}
                 className="w-10 h-10 rounded-full border border-[#B026FF]/60 object-cover shadow-inner cursor-pointer hover:border-[#00F0FF] transition-colors" 
@@ -1165,46 +1174,7 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
                 <div className="flex items-center gap-2 text-white/40 text-xs py-10 justify-center">
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Adding media…
                 </div>
-              ) : !bgColor ? (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 flex flex-col items-center gap-2 py-8 rounded-2xl border-2 border-dashed border-white/15 hover:border-[#00F0FF]/50 hover:bg-[#00F0FF]/5 transition-colors"
-                  >
-                    <Video className="w-7 h-7 text-[#00F0FF]" />
-                    <span className="text-xs font-semibold text-white/70">Upload a video</span>
-                  </button>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 flex flex-col items-center gap-2 py-8 rounded-2xl border-2 border-dashed border-white/15 hover:border-[#B026FF]/50 hover:bg-[#B026FF]/5 transition-colors"
-                  >
-                    <Images className="w-7 h-7 text-[#B026FF]" />
-                    <span className="text-xs font-semibold text-white/70">Upload a photo</span>
-                  </button>
-                </div>
               ) : null}
-
-              {mediaKind === 'image' && (
-                <div className="mt-2 flex flex-col gap-2 bg-white/5 border border-white/5 rounded-2xl p-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Vibe Duration (seconds)</span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setImageDuration(15)}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${imageDuration === 15 ? 'bg-[#B026FF] text-white shadow-lg shadow-[#B026FF]/20' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
-                    >
-                      15s Playback
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImageDuration(30)}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${imageDuration === 30 ? 'bg-[#B026FF] text-white shadow-lg shadow-[#B026FF]/20' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
-                    >
-                      30s Playback
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Attach bar — identical to Pulse, featuring Photo, Video, Color, #Tag, Mood, and Music */}
