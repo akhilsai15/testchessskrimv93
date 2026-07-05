@@ -113,6 +113,7 @@ function VibeCard({
   onPrev,
   total,
   current,
+  onDelete,
 }: {
   vibe: VibePost;
   isActive: boolean;
@@ -122,8 +123,13 @@ function VibeCard({
   onPrev: () => void;
   total: number;
   current: number;
+  onDelete?: (vibeId: string) => void;
 }) {
-  const { savePost, unsavePost, savedPosts } = useSavedStore();
+  const { savePost, unsavePost, savedPosts, hydrate: hydrateStore } = useSavedStore();
+
+  useEffect(() => {
+    hydrateStore();
+  }, [hydrateStore]);
   const currentUser = useCurrentUser();
   const navigate = useNavigate();
   const followStatus = useFollowStatus(vibe.handle);
@@ -786,7 +792,20 @@ function VibeCard({
                 </span>
               </div>
             </div>
-            {!isMe && (
+            {isMe ? (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm("Are you sure you want to delete this vibe? This cannot be undone.")) {
+                    onDelete?.(vibe.id);
+                  }
+                }}
+                className="text-[10px] font-black px-3 py-1.5 rounded-xl tracking-widest transition-all active:scale-95 border border-red-500/30 text-red-500 bg-red-500/10 hover:bg-red-500/20"
+                title="Delete Vibe"
+              >
+                DELETE
+              </button>
+            ) : (
               <button 
                 onClick={handleFollowToggle}
                 className={`text-[10px] font-black px-3 py-1.5 rounded-xl tracking-widest transition-all active:scale-95 border ${
@@ -1565,9 +1584,46 @@ export default function VibesScreen() {
   const [userVibes, setUserVibes] = useState<VibePost[]>(() => {
     try {
       const parsed = JSON.parse(localStorage.getItem('skrimchat_user_vibes') || '[]');
-      return Array.isArray(parsed) ? parsed : [];
+      const deletedVibeIds = JSON.parse(localStorage.getItem('skrimchat_deleted_vibe_ids') || '[]');
+      const filtered = Array.isArray(parsed) ? parsed : [];
+      return filtered.filter((v: any) => v && v.id && !deletedVibeIds.includes(v.id));
     } catch { return []; }
   });
+
+  const [toastMessage, setToastMessage] = useState('');
+
+  const handleDeleteVibe = useCallback((vibeId: string) => {
+    try {
+      const deletedVibeIds = JSON.parse(localStorage.getItem('skrimchat_deleted_vibe_ids') || '[]');
+      if (!deletedVibeIds.includes(vibeId)) {
+        deletedVibeIds.push(vibeId);
+        localStorage.setItem('skrimchat_deleted_vibe_ids', JSON.stringify(deletedVibeIds));
+      }
+    } catch (e) {
+      localStorage.setItem('skrimchat_deleted_vibe_ids', JSON.stringify([vibeId]));
+    }
+
+    try {
+      const customVibes = JSON.parse(localStorage.getItem('skrimchat_user_vibes') || '[]');
+      const filteredCustom = customVibes.filter((v: any) => v.id !== vibeId);
+      localStorage.setItem('skrimchat_user_vibes', JSON.stringify(filteredCustom));
+      setUserVibes(filteredCustom);
+    } catch (e) {}
+
+    setSessionUserVibes(prev => prev.filter(v => v.id !== vibeId));
+    setVibes(prev => prev.filter(v => v.id !== vibeId));
+
+    setCurrentIdx(prev => {
+      if (prev >= vibes.length - 1) {
+        return Math.max(0, vibes.length - 2);
+      }
+      return prev;
+    });
+
+    window.dispatchEvent(new Event('skrimchat_user_vibes_updated'));
+    setToastMessage('Vibe deleted successfully');
+    setTimeout(() => setToastMessage(''), 2000);
+  }, [vibes.length]);
 
   // Randomized offset on mount so returning always shows new/different vibes
   const [refreshOffsets, setRefreshOffsets] = useState<Record<string, number>>(() => {
@@ -1627,9 +1683,16 @@ export default function VibesScreen() {
         initial = [...sessionUserVibes, ...initial];
       }
 
+      let deletedVibeIds: string[] = [];
+      try {
+        deletedVibeIds = JSON.parse(localStorage.getItem('skrimchat_deleted_vibe_ids') || '[]');
+      } catch (e) {}
+
       // De-duplicate initial set of vibes to prevent key collisions in React
       const seen = new Set<string>();
       const uniqueInitial = initial.filter(v => {
+        if (!v || !v.id) return false;
+        if (deletedVibeIds.includes(v.id)) return false;
         if (seen.has(v.id)) return false;
         seen.add(v.id);
         return true;
@@ -1652,9 +1715,16 @@ export default function VibesScreen() {
         const more = assembleVibesFeed(mood, offset, 8);
         
         setVibes(prev => {
+          let deletedVibeIds: string[] = [];
+          try {
+            deletedVibeIds = JSON.parse(localStorage.getItem('skrimchat_deleted_vibe_ids') || '[]');
+          } catch (e) {}
+
           const combined = [...prev, ...more];
           const seen = new Set<string>();
           return combined.filter(v => {
+            if (!v || !v.id) return false;
+            if (deletedVibeIds.includes(v.id)) return false;
             if (seen.has(v.id)) return false;
             seen.add(v.id);
             return true;
@@ -1850,6 +1920,21 @@ export default function VibesScreen() {
 
   return (
     <div ref={containerRef} className="relative w-full h-full min-h-[500px] bg-black overflow-hidden flex flex-col">
+      {/* Toast Notification Container inside Frame */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div 
+            initial={{ opacity: 0, y: 15, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            className="absolute top-20 left-1/2 -translate-x-1/2 z-[110] bg-[#0A0B10]/95 backdrop-blur-md border border-red-500/30 px-6 py-2.5 rounded-full flex items-center gap-2 shadow-2xl shadow-red-500/10 select-none"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-white text-xs font-bold tracking-wider">{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Filter tabs — top overlay */}
       <div className="absolute top-7 left-0 right-[100px] z-30">
         <div className="flex gap-2 px-4 overflow-x-auto no-scrollbar pb-1">
@@ -1918,6 +2003,7 @@ export default function VibesScreen() {
               onPrev={goPrev}
               total={vibes.length}
               current={currentIdx}
+              onDelete={handleDeleteVibe}
             />
           </div>
         ))}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Heart, MessageCircle, Share, Music, Send, Link as LinkIcon, Zap, Shield, SmilePlus, Bookmark, Trash2, Pencil } from 'lucide-react';
 import { SKRIM_REACTIONS } from '../lib/mock/mockData';
+import { useSavedStore } from '../store/savedStore';
 import { BadgeRow } from './BadgeComponents';
 import { PulseSendSheet } from './PulseSheets';
 import { ReactionRow } from './ReactionRow';
@@ -52,7 +53,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
   const [comments, setComments] = useState<any[]>([]);
   const [commentInput, setCommentInput] = useState('');
   const [toastMessage, setToastMessage] = useState('');
-  const [isSaved, setIsSaved] = useState(false);
+  const { savedPosts, savePost, unsavePost } = useSavedStore();
   const [reactions, setReactions] = useState<Record<string, number>>({ 
     pulse: 4200,
     blaze: 3100,
@@ -688,13 +689,28 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
             <button 
               onClick={(e) => { 
                 addRipple(e);
-                if (!isSaved) showToast("Post saved! Done");
-                setIsSaved(!isSaved); 
+                if (savedPosts.includes(currentPostId)) {
+                  unsavePost(currentPostId);
+                  showToast("Post removed from Saved");
+                } else {
+                  // Construct a valid object to save
+                  const objToSave = currentPost || {
+                    id: currentPostId,
+                    image: currentUrl,
+                    caption: captionText || '',
+                    user: author.displayName,
+                    handle: author.username,
+                    avatar: author.avatar,
+                    createdAt: Date.now()
+                  };
+                  savePost(currentPostId, objToSave);
+                  showToast("Post saved to Identity");
+                }
               }} 
               className="flex flex-col items-center gap-1 group ml-auto bg-white/10 hover:bg-white/20 transition px-5 py-2 rounded-2xl backdrop-blur-md border border-white/5"
             >
-              <Bookmark className={`w-5 h-5 transition-all duration-300 lg:group-hover:scale-110 ${isSaved ? "text-[#B026FF] fill-[#B026FF]" : "text-white group-hover:text-[#B026FF]"}`} />
-              <span className="text-xs font-bold text-white">{isSaved ? "Saved" : "Save"}</span>
+              <Bookmark className={`w-5 h-5 transition-all duration-300 lg:group-hover:scale-110 ${savedPosts.includes(currentPostId) ? "text-[#00F0FF] fill-[#00F0FF]" : "text-white group-hover:text-[#00F0FF]"}`} />
+              <span className="text-xs font-bold text-white">{savedPosts.includes(currentPostId) ? "Saved" : "Save"}</span>
             </button>
           </div>
 

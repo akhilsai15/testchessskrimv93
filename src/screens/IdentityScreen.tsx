@@ -108,12 +108,12 @@ export default function IdentityScreen() {
   const [userVibes, setUserVibes] = useState<any[]>([]);
   const [savedItems, setSavedItems] = useState<any[]>([]);
   const [repostItems, setRepostItems] = useState<any[]>([]);
-  const { savedPosts, repostedPosts, savedFullPosts, hydrate } = useSavedStore();
+  const { savedPosts, repostedPosts, savedFullPosts, hydrate, unsavePost } = useSavedStore();
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
   const [activeSavedTab, setActiveSavedTab] = useState<'bookmarks' | 'offline'>('bookmarks');
   const { offlineVibes, loadVibes, deleteVibe } = useOfflineStore();
-  const [selectedMedia, setSelectedMedia] = useState<{index: number, type: 'post'|'vibe'|'saved'|'repost'|'tagged'|string, urls: string[], users?: any[]} | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<{index: number, type: 'post'|'vibe'|'saved'|'repost'|'tagged'|string, urls: string[], users?: any[], isSavedTab?: boolean} | null>(null);
   const pinnedPostIds = usePinnedPosts(user?.username || '');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -512,6 +512,13 @@ export default function IdentityScreen() {
     window.dispatchEvent(new Event('skrimchat_user_vibes_updated'));
 
     setToastMessage('Vibe deleted successfully');
+    setSelectedMedia(null);
+  };
+
+  const handleDeleteSaved = (item: any) => {
+    if (!item || !item.id) return;
+    unsavePost(item.id);
+    setToastMessage('Item removed from Saved successfully');
     setSelectedMedia(null);
   };
 
@@ -1264,11 +1271,21 @@ export default function IdentityScreen() {
                  onClick={() => setSelectedMedia({ 
                    index: i, 
                    type: isVideo ? 'vibe' : 'saved', 
+                   isSavedTab: true,
                    urls: savedItems.map(it => it.image || it.videoImageHover || it.videoImage || it.thumbnail),
                    users: savedItems.map((it: any) => ({ ...it, username: it.handle || it.userName || it.user?.username || '@someone', avatar: it.avatar || it.userAvatar || it.user?.avatar || 'https://i.pravatar.cc/150' }))
                  })}
                >
-                 <img src={url || null} alt="saved" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                 {url ? (
+                   <img src={url} alt="saved" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                 ) : (
+                   <div 
+                     className="w-full h-full flex flex-col items-center justify-center p-3 text-center text-[10px] font-bold overflow-hidden select-none"
+                     style={{ backgroundColor: item.bgColor || item.colorTag || '#3B0066' }}
+                   >
+                     <span className="text-white/80 line-clamp-4 leading-normal">{item.caption || item.text}</span>
+                   </div>
+                 )}
                  {isVideo && <div className="absolute top-2 left-2"><PlaySquare className="w-4 h-4 text-white drop-shadow-md" /></div>}
                  <div className="absolute top-2 right-2"><Bookmark className="w-4 h-4 fill-[#00F0FF] text-[#00F0FF] drop-shadow-md" /></div>
                </motion.div>
@@ -1402,7 +1419,15 @@ export default function IdentityScreen() {
           user={user}
           users={selectedMedia.users}
           onClose={() => setSelectedMedia(null)}
-          onDeletePost={selectedMedia.type === 'post' ? handleDeletePost : selectedMedia.type === 'vibe' ? handleDeleteVibe : undefined}
+          onDeletePost={
+            selectedMedia.isSavedTab 
+              ? handleDeleteSaved 
+              : selectedMedia.type === 'post' 
+                ? handleDeletePost 
+                : selectedMedia.type === 'vibe' 
+                  ? handleDeleteVibe 
+                  : undefined
+          }
           onEditPost={selectedMedia.type === 'post' ? handleEditPost : undefined}
         />
       )}

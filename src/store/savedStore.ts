@@ -47,6 +47,7 @@ export const useSavedStore = create<SavedState>((set, get) => ({
         }
       }
       get().hydrate();
+      window.dispatchEvent(new CustomEvent('skrimchat_post_saved', { detail: { postId, isSaving: true } }));
     } catch (e) {}
   },
 
@@ -57,6 +58,12 @@ export const useSavedStore = create<SavedState>((set, get) => ({
       const full: any[] = JSON.parse(localStorage.getItem(SAVED_FULL_KEY) || '[]');
       localStorage.setItem(SAVED_FULL_KEY, JSON.stringify(full.filter((p: any) => p.id !== postId)));
       get().hydrate();
+      window.dispatchEvent(new CustomEvent('skrimchat_post_saved', { detail: { postId, isSaving: false } }));
     } catch (e) {}
   },
 }));
+
+// Hydrate immediately upon import so it is populated on app initialization
+try {
+  useSavedStore.getState().hydrate();
+} catch (e) {}
