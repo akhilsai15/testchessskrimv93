@@ -502,10 +502,25 @@ export function PulseSendSheet({
       const sparkId = isSpark ? `repost_${post.id}_${Date.now()}` : `postspark_${post.id}`;
       if (!stored.some((s: any) => s.id === sparkId)) {
         const thumbnail = post.image || post.images?.[0] || null;
+        let activeUser = currentUser;
+        if (!activeUser) {
+          const storedUser = localStorage.getItem('skrimchat_user') || localStorage.getItem('skrimchat_mock_user');
+          if (storedUser) {
+            try { activeUser = JSON.parse(storedUser); } catch (e) {}
+          }
+        }
+        if (!activeUser) {
+          activeUser = {
+            id: 'current_user_fallback',
+            username: 'You',
+            fullName: 'You',
+            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop'
+          };
+        }
         const newSpark = isSpark ? {
           ...post,
           id: sparkId,
-          user: currentUser,
+          user: activeUser,
           isOwn: true,
           isRepost: true,
           repostedFrom: post.user?.username || post.handle || 'user',
@@ -515,7 +530,7 @@ export function PulseSendSheet({
           views: 0,
           reactions: { pulse: 0, blaze: 0, vibe: 0 },
         } : {
-          id: sparkId, user: currentUser, isOwn: true, isRepost: true,
+          id: sparkId, user: activeUser, isOwn: true, isRepost: true,
           repostedFrom: post.handle || post.user?.username || 'user', createdAt: Date.now(),
           expiresAt: Date.now() + 24 * 60 * 60 * 1000,
           hasViewed: false, views: 0, energy: 'COLD',
