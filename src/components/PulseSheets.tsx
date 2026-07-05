@@ -254,6 +254,7 @@ export function PulseReshareSheet({
           type: thumbnail ? 'image' : 'text', image: thumbnail,
           text: post.caption || post.text || '',
           caption: post.caption || post.text || '', sourcePostId: post.id,
+          background: 'purple',
         });
         localStorage.setItem('skrimchat_sparks', JSON.stringify(stored));
         window.dispatchEvent(new CustomEvent('skrimchat_spark_reposted', { detail: stored[0] }));
@@ -500,7 +501,19 @@ export function PulseSendSheet({
       const sparkId = isSpark ? `repost_${post.id}_${Date.now()}` : `postspark_${post.id}`;
       if (!stored.some((s: any) => s.id === sparkId)) {
         const thumbnail = post.image || post.images?.[0] || null;
-        stored.unshift({
+        const newSpark = isSpark ? {
+          ...post,
+          id: sparkId,
+          user: currentUser,
+          isOwn: true,
+          isRepost: true,
+          repostedFrom: post.user?.username || post.handle || 'user',
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+          hasViewed: false,
+          views: 0,
+          reactions: { pulse: 0, blaze: 0, vibe: 0 },
+        } : {
           id: sparkId, user: currentUser, isOwn: true, isRepost: true,
           repostedFrom: post.handle || post.user?.username || 'user', createdAt: Date.now(),
           expiresAt: Date.now() + 24 * 60 * 60 * 1000,
@@ -508,8 +521,10 @@ export function PulseSendSheet({
           reactions: { pulse: 0, blaze: 0, vibe: 0 },
           type: thumbnail ? 'image' : 'text', image: thumbnail,
           text: post.caption || post.text || '',
-          caption: post.caption || post.text || '', sourcePostId: isSpark ? null : post.id,
-        });
+          caption: post.caption || post.text || '', sourcePostId: post.id,
+          background: 'purple',
+        };
+        stored.unshift(newSpark);
         localStorage.setItem('skrimchat_sparks', JSON.stringify(stored));
         window.dispatchEvent(new CustomEvent('skrimchat_spark_reposted', { detail: stored[0] }));
       }
