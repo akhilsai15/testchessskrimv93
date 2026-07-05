@@ -1266,7 +1266,7 @@ export default function IdentityScreen() {
              {savedItems.length === 0 ? (
                 <div className="col-span-3 text-center py-20 text-gray-500 text-sm">No saved posts yet.</div>
              ) : savedItems.map((item, i) => {
-               const isVideo = item.id?.startsWith('reel') || item.id?.startsWith('vibe') || !!item.videoSrc;
+               const isVideo = !!(item.videoSrc || item.type === 'video' || (item.id?.startsWith('reel') || (item.id?.startsWith('vibe') && item.type !== 'image' && item.type !== 'text' && !item.bgColor)));
                const url = item.image || item.videoImageHover || item.videoImage || item.thumbnail;
                return (
                <motion.div 
@@ -1277,7 +1277,7 @@ export default function IdentityScreen() {
                  className="aspect-square bg-white/5 relative group cursor-pointer overflow-hidden"
                  onClick={() => setSelectedMedia({ 
                    index: i, 
-                   type: isVideo ? 'vibe' : 'saved', 
+                   type: (item.id?.startsWith('vibe') || item.id?.startsWith('reel') || isVideo) ? 'vibe' : 'saved', 
                    isSavedTab: true,
                    urls: savedItems.map(it => it.videoSrc || it.image || it.videoImageHover || it.videoImage || it.thumbnail || ''),
                    users: savedItems.map((it: any) => ({ ...it, username: it.handle || it.userName || it.user?.username || '@someone', avatar: it.avatar || it.userAvatar || it.user?.avatar || 'https://i.pravatar.cc/150' }))

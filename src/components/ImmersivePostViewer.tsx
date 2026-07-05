@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Heart, MessageCircle, Share, Music, Send, Link as LinkIcon, Zap, Shield, SmilePlus, Bookmark, Trash2, Pencil } from 'lucide-react';
+import { X, Heart, MessageCircle, Share, Music, Send, Link as LinkIcon, Zap, Shield, SmilePlus, Bookmark, Trash2, Pencil, Volume2, VolumeX } from 'lucide-react';
+import { CURATED_TRACKS } from './MusicPicker';
 import { SKRIM_REACTIONS } from '../lib/mock/mockData';
 import { useSavedStore } from '../store/savedStore';
 import { BadgeRow } from './BadgeComponents';
@@ -49,6 +50,9 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
   const [pulseRipples, setPulseRipples] = useState<{ id: number; x: number; y: number }[]>([]);
   const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
   const pressTimer = useRef<NodeJS.Timeout | null>(null);
+  
+  const [viewerMuted, setViewerMuted] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const [comments, setComments] = useState<any[]>([]);
   const [commentInput, setCommentInput] = useState('');
@@ -122,10 +126,27 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
   const isTextOnly = !!(
     currentPost && 
     !currentPost.image && 
+    !currentPost.thumbnail &&
     (!currentPost.images || currentPost.images.length === 0) && 
     !currentPost.videoSrc && 
-    (currentPost.type === 'text' || (!currentPost.type?.includes('video') && !currentPost.type?.includes('image'))) && 
+    (currentPost.type === 'text' || currentPost.bgColor || currentPost.colorTag || (!currentPost.type?.includes('video') && !currentPost.type?.includes('image'))) && 
     (currentPost.text || currentPost.caption)
+  );
+
+  const isVideoItem = !!(
+    currentPost?.videoSrc ||
+    currentPost?.type === 'video' ||
+    currentUrl?.startsWith('data:video/') ||
+    currentUrl?.endsWith('.mp4') ||
+    currentUrl?.endsWith('.webm') ||
+    currentUrl?.endsWith('.ogg') ||
+    (type === 'video' || type === 'video_thumb' || type === 'reel') ||
+    (type === 'vibe' && (
+      !currentPost ||
+      currentPost.videoSrc || 
+      currentPost.type === 'video' || 
+      (currentPost.type !== 'image' && currentPost.type !== 'text' && !currentPost.thumbnail && !currentPost.image && !currentPost.bgColor)
+    ))
   );
   
   // Determine author for the current slide
@@ -140,9 +161,77 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
   const hasCaption = !!captionText.trim();
   const showCaption = !currentPost ? true : (hasCaption && !isTextOnly);
   
-  const musicText = currentPost?.audioContext || 
+  const musicText = currentPost?.audio ||
+                    currentPost?.audioContext || 
                     (typeof currentPost?.music === 'string' ? currentPost.music : currentPost?.music?.name || currentPost?.music?.title) ||
                     (currentPost ? `Original Audio — ${author.username}` : 'Trending Audio — Mumbai After Hours');
+
+  useEffect(() => {
+    // If we have a video post, pause any background music and let the video element play
+    if (isVideoItem && !isTextOnly) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      return;
+    }
+
+    // Otherwise, check if currentPost has audio or music
+    const getAudioUrl = () => {
+      if (!currentPost) return null;
+      if (currentPost.audioUrl) return currentPost.audioUrl;
+      const title = currentPost.audio || '';
+      if (!title) return null;
+      
+      const found = CURATED_TRACKS.find(t => 
+        title.toLowerCase().includes(t.title.toLowerCase()) || 
+        t.title.toLowerCase().includes(title.toLowerCase())
+      );
+      if (found) return found.url;
+      
+      const hash = title.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const fallbackTrack = CURATED_TRACKS[hash % CURATED_TRACKS.length];
+      return fallbackTrack?.url || null;
+    };
+
+    const audioUrl = getAudioUrl();
+    if (!audioUrl) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      return;
+    }
+
+    // Re-create or update source
+    if (!audioRef.current) {
+      audioRef.current = new Audio(audioUrl);
+    } else if (audioRef.current.src !== audioUrl) {
+      audioRef.current.pause();
+      audioRef.current.src = audioUrl;
+    }
+
+    const audio = audioRef.current;
+    audio.loop = true;
+    audio.muted = viewerMuted;
+
+    // Start playback
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(error => {
+        console.log("Audio playback failed or was interrupted:", error);
+      });
+    }
+
+    // Set loop starting time if specified
+    if (currentPost.start_ms) {
+      audio.currentTime = currentPost.start_ms / 1000;
+    } else {
+      audio.currentTime = 0;
+    }
+
+    return () => {
+      audio.pause();
+    };
+  }, [currentIndex, currentPostId, isVideoItem, isTextOnly, viewerMuted]);
 
   useEffect(() => {
     // Simulate live pulse ripples from center of screen occasionally
@@ -478,6 +567,22 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
               <Trash2 className="w-5 h-5" />
             </button>
           )}
+          {(isVideoItem || currentPost?.audio || currentPost?.audioUrl) && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setViewerMuted(!viewerMuted);
+              }}
+              title={viewerMuted ? "Unmute audio" : "Mute audio"}
+              className="w-10 h-10 bg-black/40 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition backdrop-blur-md border border-white/10 z-[60]"
+            >
+              {viewerMuted ? (
+                <VolumeX className="w-5 h-5 text-gray-400" />
+              ) : (
+                <Volume2 className="w-5 h-5 text-[#00F0FF]" />
+              )}
+            </button>
+          )}
           <button
             onClick={onClose}
             className="w-10 h-10 bg-black/40 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition backdrop-blur-md border border-white/10 z-[60]"
@@ -504,13 +609,14 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
             onPointerDown={handlePointerDown}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
-            className={`relative w-[90%] max-w-[450px] shadow-[0_20px_60px_rgba(176,38,255,0.4)] cursor-pointer touch-none ${(type === 'vibe' || currentUrl?.startsWith('data:video/') || currentUrl?.includes('400/700')) ? 'aspect-[9/16]' : 'aspect-square'} rounded-[24px] overflow-hidden`}
+            className={`relative w-[90%] max-w-[450px] shadow-[0_20px_60px_rgba(176,38,255,0.4)] cursor-pointer touch-none ${(type === 'vibe' || isVideoItem || currentUrl?.includes('400/700')) ? 'aspect-[9/16]' : 'aspect-square'} rounded-[24px] overflow-hidden`}
             onDoubleClick={handleDoubleTap}
           >
-            {((type === 'vibe' || type === 'video' || type === 'video_thumb' || currentUrl?.startsWith('data:video/') || currentUrl?.includes('400/700')) && !isTextOnly) ? (
+            {(isVideoItem && !isTextOnly) ? (
               <video
                  src={currentPost?.videoSrc || (currentUrl?.startsWith('data:video/') ? currentUrl : "https://www.w3schools.com/html/mov_bbb.mp4") || null}
                  autoPlay 
+                 muted={viewerMuted}
                  loop 
                  playsInline 
                  poster={currentPost?.thumbnail || (currentUrl?.startsWith('data:video/') ? undefined : currentUrl) || undefined}
@@ -544,7 +650,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
                 })()
               ) : (
                 <img
-                  src={currentUrl || null}
+                  src={currentUrl || currentPost?.thumbnail || currentPost?.image || null}
                   alt="post"
                   className="w-full h-full object-cover pointer-events-none"
                 />
@@ -797,8 +903,8 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
         onClose={() => setShowShareMenu(false)} 
         post={{ 
           id: `immers_${currentIndex}`, 
-          image: (type === 'vibe' || type === 'video' || type === 'video_thumb' || urls[currentIndex]?.startsWith('data:video/') || urls[currentIndex]?.includes('400/700')) ? '' : urls[currentIndex], 
-          video: (type === 'vibe' || type === 'video' || type === 'video_thumb' || urls[currentIndex]?.startsWith('data:video/') || urls[currentIndex]?.includes('400/700')) ? urls[currentIndex] : '', 
+          image: isVideoItem ? '' : urls[currentIndex], 
+          video: isVideoItem ? urls[currentIndex] : '', 
           user: user?.username || 'user', 
           handle: user?.handle || 'user', 
           avatar: user?.avatar 
