@@ -326,15 +326,8 @@ function VibeCard({
     }
   }, [isPlaying, isActive]);
 
-  // Unified Precise Time-Based Audio and Progress Playback Controller for Image-Only Vibes
+  // Unified Precise Time-Based Audio and Progress Playback Controller
   useEffect(() => {
-    if (vibe.videoSrc) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      return;
-    }
-
     const getAudioUrl = () => {
       if (vibe.audioUrl) return vibe.audioUrl;
       const title = vibe.audio || '';

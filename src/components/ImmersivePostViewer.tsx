@@ -167,15 +167,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
                     (currentPost ? `Original Audio — ${author.username}` : 'Trending Audio — Mumbai After Hours');
 
   useEffect(() => {
-    // If we have a video post, pause any background music and let the video element play
-    if (isVideoItem && !isTextOnly) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      return;
-    }
-
-    // Otherwise, check if currentPost has audio or music
+    // Check if currentPost has audio or music
     const getAudioUrl = () => {
       if (!currentPost) return null;
       if (currentPost.audioUrl) return currentPost.audioUrl;
@@ -211,7 +203,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
 
     const audio = audioRef.current;
     audio.loop = true;
-    audio.muted = viewerMuted;
+    audio.muted = viewerMuted; // apply current mute state immediately on new track
 
     // Start playback
     const playPromise = audio.play();
@@ -221,17 +213,23 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
       });
     }
 
-    // Set loop starting time if specified
-    if (currentPost.start_ms) {
-      audio.currentTime = currentPost.start_ms / 1000;
-    } else {
-      audio.currentTime = 0;
+    // Set loop starting time if specified (only if we just loaded this track)
+    if (audio.currentTime === 0) {
+      if (currentPost.start_ms) {
+        audio.currentTime = currentPost.start_ms / 1000;
+      }
     }
 
     return () => {
       audio.pause();
     };
-  }, [currentIndex, currentPostId, isVideoItem, isTextOnly, viewerMuted]);
+  }, [currentIndex, currentPostId, isVideoItem, isTextOnly]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.muted = viewerMuted;
+    }
+  }, [viewerMuted]);
 
   useEffect(() => {
     // Simulate live pulse ripples from center of screen occasionally
