@@ -218,7 +218,7 @@ export default function OtherUserProfileScreen() {
                   {mutualFollowers.slice(0, 3).map(mf => (
                     <img
                       key={mf.username}
-                      src={mf.avatar}
+                      src={mf.avatar || null}
                       alt={mf.displayName}
                       className="w-5 h-5 rounded-full border-2 border-skrim-bg object-cover"
                     />
@@ -297,7 +297,7 @@ export default function OtherUserProfileScreen() {
               >
                 <div className="relative">
                   <img
-                    src={rec.avatar}
+                    src={rec.avatar || null}
                     alt={rec.displayName}
                     className="w-14 h-14 rounded-full border-2 border-white/10 group-hover:border-neon-purple/60 transition object-cover"
                   />
@@ -377,7 +377,7 @@ export default function OtherUserProfileScreen() {
               <div className="w-full h-full relative overflow-hidden group/vid">
                 {((post.image || selectedMediaUrls[i])?.startsWith('data:video/') || (!post.thumbnail && !post.image && post.videoSrc)) ? (
                   <video 
-                    src={post.videoSrc || post.image || selectedMediaUrls[i]} 
+                    src={post.videoSrc || post.image || selectedMediaUrls[i] || null} 
                     className="w-full h-full object-cover transition-opacity group-hover:opacity-80" 
                     muted 
                     playsInline
@@ -385,7 +385,7 @@ export default function OtherUserProfileScreen() {
                   />
                 ) : (
                   <img 
-                    src={post.thumbnail || post.image || selectedMediaUrls[i]} 
+                    src={post.thumbnail || post.image || selectedMediaUrls[i] || null} 
                     alt="post" 
                     className="w-full h-full object-cover transition-opacity group-hover:opacity-80" 
                   />
@@ -395,7 +395,7 @@ export default function OtherUserProfileScreen() {
                 </div>
               </div>
             ) : (
-              <img src={post.image || selectedMediaUrls[i]} alt="post" className="w-full h-full object-cover transition-opacity group-hover:opacity-80" />
+              <img src={post.image || selectedMediaUrls[i] || null} alt="post" className="w-full h-full object-cover transition-opacity group-hover:opacity-80" />
             )}
             {isPinned && (
               <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center">

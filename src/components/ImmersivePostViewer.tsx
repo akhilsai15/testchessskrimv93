@@ -501,11 +501,11 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
           >
             {((type === 'vibe' || type === 'video' || type === 'video_thumb' || currentUrl?.startsWith('data:video/') || currentUrl?.includes('400/700')) && !isTextOnly) ? (
               <video
-                 src={currentPost?.videoSrc || (currentUrl?.startsWith('data:video/') ? currentUrl : "https://www.w3schools.com/html/mov_bbb.mp4")}
+                 src={currentPost?.videoSrc || (currentUrl?.startsWith('data:video/') ? currentUrl : "https://www.w3schools.com/html/mov_bbb.mp4") || null}
                  autoPlay 
                  loop 
                  playsInline 
-                 poster={currentPost?.thumbnail || (currentUrl?.startsWith('data:video/') ? undefined : currentUrl)}
+                 poster={currentPost?.thumbnail || (currentUrl?.startsWith('data:video/') ? undefined : currentUrl) || undefined}
                  className="w-full h-full object-cover pointer-events-none"
               />
             ) : (
@@ -536,7 +536,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
                 })()
               ) : (
                 <img
-                  src={currentUrl}
+                  src={currentUrl || null}
                   alt="post"
                   className="w-full h-full object-cover pointer-events-none"
                 />
@@ -707,7 +707,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
                         {comments.slice(-2).map(c => (
                           <div key={c.id} className="flex items-center gap-3">
                             <img 
-                              src={c.avatar} 
+                              src={c.avatar || 'https://i.pravatar.cc/150'} 
                               className="w-6 h-6 rounded-full border border-white/10 cursor-pointer" 
                               alt="user" 
                               onClick={() => {
@@ -740,7 +740,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
                 {comments.slice(-2).map(c => (
                   <div key={c.id} className="flex items-center gap-3">
                     <img 
-                      src={c.avatar} 
+                      src={c.avatar || 'https://i.pravatar.cc/150'} 
                       className="w-6 h-6 rounded-full border border-white/10 cursor-pointer" 
                       alt="user" 
                       onClick={() => {
@@ -814,7 +814,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
                 {comments.map((comment) => (
                   <div key={comment.id} className="flex gap-3">
                     <img 
-                      src={comment.avatar} 
+                      src={comment.avatar || 'https://i.pravatar.cc/150'} 
                       alt="avatar" 
                       className="w-8 h-8 rounded-full object-cover shrink-0 cursor-pointer" 
                       onClick={() => {

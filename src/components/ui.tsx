@@ -57,7 +57,7 @@ export function AvatarWithRing({ src, size = "md", isStory = false, className, s
   
   return (
     <div className={cn("relative flex items-center justify-center rounded-full pointer-events-none shrink-0", sizes[size], className, frameClasses)} style={frameStyle}>
-      <img src={src} alt="avatar" className="w-full h-full object-cover rounded-full border-2 border-[#0A0A0A] pointer-events-auto" />
+      <img src={src || null} alt="avatar" className="w-full h-full object-cover rounded-full border-2 border-[#0A0A0A] pointer-events-auto" />
       {showOnlineDot && isOnline && (
         <div className="absolute bottom-0 right-0 w-[10px] h-[10px] bg-[#00FF64] rounded-full border-[2px] border-[#0A0A0A] pointer-events-auto z-10" />
       )}

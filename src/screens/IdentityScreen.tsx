@@ -1268,7 +1268,7 @@ export default function IdentityScreen() {
                    users: savedItems.map((it: any) => ({ ...it, username: it.handle || it.userName || it.user?.username || '@someone', avatar: it.avatar || it.userAvatar || it.user?.avatar || 'https://i.pravatar.cc/150' }))
                  })}
                >
-                 <img src={url} alt="saved" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                 <img src={url || null} alt="saved" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                  {isVideo && <div className="absolute top-2 left-2"><PlaySquare className="w-4 h-4 text-white drop-shadow-md" /></div>}
                  <div className="absolute top-2 right-2"><Bookmark className="w-4 h-4 fill-[#00F0FF] text-[#00F0FF] drop-shadow-md" /></div>
                </motion.div>
@@ -1311,7 +1311,7 @@ export default function IdentityScreen() {
                    }
                  }}
                >
-                 <img src={item.thumbnail} alt="thumbnail" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                 <img src={item.thumbnail || null} alt="thumbnail" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                  <div className="absolute top-2 left-2"><PlaySquare className="w-4 h-4 text-white drop-shadow-md" /></div>
                  
                  <div className="absolute top-2 right-2 flex items-center justify-center bg-black/60 backdrop-blur text-white text-[10px] w-6 h-6 rounded-full shadow">
@@ -1354,7 +1354,7 @@ export default function IdentityScreen() {
                   users: repostItems.map(it => { const p = it.originalPost || it; const u = p.user || {}; return { ...p, username: (typeof u === 'object' ? u.username : u) || p.handle || '@someone', avatar: (typeof u === 'object' ? u.avatar : '') || p.avatar || '' }; })
                 })}
               >
-                <img src={url} alt="repost" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                <img src={url || null} alt="repost" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   onError={(e) => { e.currentTarget.style.display='none'; }}
                 />
                 {/* Repost badge */}
@@ -1385,7 +1385,7 @@ export default function IdentityScreen() {
                   urls: posts.slice(0, 6).map((_, idx) => `https://picsum.photos/400/400?random=${idx+30+activeTab.charCodeAt(0)}`)
                 })}
               >
-                <img src={url} alt={activeTab} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <img src={url || null} alt={activeTab} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute bottom-2 left-2"><UserIcon className="w-4 h-4 fill-white text-white drop-shadow-md" /></div>
               </motion.div>
             )})}

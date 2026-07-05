@@ -991,6 +991,7 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
   const [showMusicPicker, setShowMusicPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [bgColor, setBgColor] = useState<string | null>(null);
+  const [postType, setPostType] = useState<'text' | 'image' | 'video'>('text');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -1006,6 +1007,7 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
     setShowMusicPicker(false);
     setShowColorPicker(false);
     setBgColor(null);
+    setPostType('text');
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -1021,6 +1023,7 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
     r.onload = () => {
       setMediaUrl(r.result as string);
       setMediaKind(kind);
+      setPostType(kind); // Automatically sync segmented tab
       setBgColor(null); // Clear color tag if media is uploaded
       setIsReading(false);
     };
@@ -1051,7 +1054,7 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
     });
   };
 
-  const canPost = caption.trim().length > 0 || !!mediaUrl;
+  const canPost = postType === 'text' ? caption.trim().length > 0 : !!mediaUrl;
 
   const handlePost = () => {
     if (!canPost) return;
@@ -1061,11 +1064,11 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
       user: currentUser?.username || 'You',
       handle: `@${currentUser?.handle || 'you'}`,
       avatar: currentUser?.avatar || '',
-      thumbnail: mediaKind === 'image' ? mediaUrl! : '',
+      thumbnail: postType === 'image' ? mediaUrl! : '',
       caption,
       audio: music?.title || 'Original Audio 🎤',
       audioUrl: music?.url || undefined,
-      duration: mediaKind === 'image' ? imageDuration : (mediaKind === null ? 15 : undefined),
+      duration: postType === 'image' ? imageDuration : (postType === 'text' ? 15 : undefined),
       start_ms: music ? music.start_ms : undefined,
       mood,
       createdAt: Date.now(),
@@ -1079,8 +1082,8 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
       vibeScore: 100,
       watchTimeScore: 0,
       rewatchRatio: 0,
-      ...(mediaKind === 'video' ? { videoSrc: mediaUrl } : {}),
-      ...(bgColor ? { bgColor } : {}),
+      ...(postType === 'video' ? { videoSrc: mediaUrl } : {}),
+      ...(postType === 'text' && bgColor ? { bgColor } : {}),
     } as VibePost;
 
     // Persist alongside mock data so a refresh doesn't lose it, following
@@ -1120,13 +1123,13 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
               <button
                 onClick={handlePost}
                 disabled={!canPost}
-                className={`text-sm font-bold px-4 py-1.5 rounded-full transition-all ${canPost ? 'bg-[#B026FF] text-white' : 'bg-white/10 text-white/30'}`}
+                className={`text-sm font-bold px-4 py-1.5 rounded-full transition-all ${canPost ? 'bg-gradient-to-r from-[#B026FF] to-[#00F0FF] text-white shadow-md' : 'bg-white/10 text-white/30'}`}
               >
                 Post
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+            <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-5 no-scrollbar">
               {/* User row */}
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0">
@@ -1135,97 +1138,241 @@ function VibeCreateSheet({ isOpen, onClose, currentUser, onPost }: {
                 <span className="text-white font-semibold text-sm">{currentUser?.username || 'You'}</span>
               </div>
 
+              {/* Segmented Post Type Selector (similar to Pulse style) */}
+              <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
+                {(['text', 'image', 'video'] as const).map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => {
+                      setPostType(type);
+                      if (type === 'text') {
+                        setMediaUrl(null);
+                        setMediaKind(null);
+                      } else {
+                        setBgColor(null);
+                        if (mediaKind !== type) {
+                          setMediaUrl(null);
+                          setMediaKind(null);
+                        }
+                      }
+                    }}
+                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl capitalize transition-all duration-200 flex items-center justify-center gap-1.5 ${
+                      postType === type 
+                        ? 'bg-gradient-to-r from-[#B026FF] to-[#00F0FF] text-white shadow-lg' 
+                        : 'text-white/60 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    {type === 'text' && <span className="text-sm font-sans leading-none">Aa</span>}
+                    {type === 'image' && <Images className="w-3.5 h-3.5" />}
+                    {type === 'video' && <Video className="w-3.5 h-3.5" />}
+                    {type}
+                  </button>
+                ))}
+              </div>
+
               {/* Text Area (with Color Tag / Transparent support) */}
-              {bgColor ? (
-                <div className="rounded-2xl p-4" style={{ backgroundColor: bgColor }}>
-                  <textarea
-                    ref={textareaRef}
-                    autoFocus
-                    value={caption}
-                    onChange={e => setCaption(e.target.value)}
-                    placeholder="What's happening?"
-                    rows={3}
-                    className="w-full bg-transparent text-black text-[19px] font-semibold leading-relaxed placeholder-black/40 resize-none outline-none min-h-[60px]"
-                  />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-white/40 text-[10px] uppercase tracking-wider font-bold">
+                  {postType === 'text' ? 'Vibe Text' : 'Caption'}
+                </label>
+                {postType === 'text' && bgColor ? (
+                  <div className="rounded-2xl p-5 min-h-[120px] flex items-center justify-center transition-all" style={{ backgroundColor: bgColor }}>
+                    <textarea
+                      ref={textareaRef}
+                      autoFocus
+                      value={caption}
+                      onChange={e => setCaption(e.target.value)}
+                      placeholder="Type your vibe text..."
+                      rows={3}
+                      className="w-full bg-transparent text-black text-xl font-black text-center leading-relaxed placeholder-black/40 resize-none outline-none min-h-[60px]"
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+                    <textarea
+                      ref={textareaRef}
+                      value={caption}
+                      onChange={e => setCaption(e.target.value)}
+                      placeholder={postType === 'text' ? "What's on your mind?" : "Write a caption for your Vibe..."}
+                      rows={postType === 'text' ? 3 : 2}
+                      className="w-full bg-transparent text-white text-[15px] leading-relaxed placeholder-white/25 resize-none outline-none min-h-[40px]"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Post Type Specific Fields: Media Upload and Color Tag Swatches */}
+              {postType === 'text' ? (
+                /* Color Swatch Field */
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-white/40 text-[10px] uppercase tracking-wider font-bold">Color tag theme</label>
+                    {bgColor && (
+                      <button
+                        type="button"
+                        onClick={() => setBgColor(null)}
+                        className="text-[10px] text-red-400 font-bold hover:underline"
+                      >
+                        Default Transparent
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setBgColor(null)}
+                      className={`w-9 h-9 aspect-square rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
+                        !bgColor ? 'border-white scale-110 bg-white/10' : 'border-white/10 hover:border-white/30 bg-transparent'
+                      }`}
+                    >
+                      <X className="w-3.5 h-3.5 text-white/70" />
+                    </button>
+                    {POST_BG_COLORS.map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setBgColor(c)}
+                        className={`w-9 h-9 aspect-square rounded-full border-2 shrink-0 transition-all ${
+                          bgColor === c ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:scale-105'
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <textarea
-                  ref={textareaRef}
-                  value={caption}
-                  onChange={e => setCaption(e.target.value)}
-                  placeholder="What's happening?"
-                  rows={2}
-                  className="w-full bg-transparent text-white text-[15px] leading-relaxed placeholder-white/25 resize-none outline-none min-h-[40px]"
-                />
+                /* Media Upload Dropper */
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-white/40 text-[10px] uppercase tracking-wider font-bold">Vibe Media Content</label>
+                  {mediaUrl ? (
+                    <div className="relative w-full aspect-[16/10] max-h-[30vh] rounded-2xl overflow-hidden bg-black border border-white/10 shadow-inner">
+                      {mediaKind === 'video' ? (
+                        <video src={mediaUrl} className="w-full h-full object-cover" controls />
+                      ) : (
+                        <img src={mediaUrl} alt="" className="w-full h-full object-cover" />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => { setMediaUrl(null); setMediaKind(null); }}
+                        className="absolute top-2.5 right-2.5 w-7 h-7 bg-black/70 hover:bg-red-600/90 rounded-full flex items-center justify-center transition-colors"
+                      >
+                        <X className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                  ) : isReading ? (
+                    <div className="flex flex-col items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-white/10 bg-white/5 py-12 text-white/50 text-xs">
+                      <RefreshCw className="w-5 h-5 animate-spin text-[#B026FF]" /> Adding media asset…
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (fileInputRef.current) {
+                          fileInputRef.current.accept = postType === 'image' ? 'image/*' : 'video/*';
+                          fileInputRef.current.click();
+                        }
+                      }}
+                      className="w-full aspect-[16/10] rounded-2xl border-2 border-dashed border-white/10 bg-white/5 hover:bg-white/10 hover:border-[#B026FF]/40 flex flex-col items-center justify-center gap-2 transition-all group py-8"
+                    >
+                      <div className="w-11 h-11 rounded-full bg-white/5 flex items-center justify-center text-white/40 group-hover:scale-110 group-hover:bg-[#B026FF]/10 group-hover:text-[#B026FF] transition-all">
+                        {postType === 'image' ? <Images className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+                      </div>
+                      <div className="text-center">
+                        <p className="text-white text-xs font-semibold">Click to select high-quality Vibe {postType}</p>
+                        <p className="text-white/40 text-[9px] mt-0.5">Supports standard format images and clips</p>
+                      </div>
+                    </button>
+                  )}
+                </div>
               )}
 
-              {/* Media Preview or big upload buttons (if no Color Tag) */}
-              {mediaUrl ? (
-                <div className="relative w-full aspect-[9/16] max-h-[42vh] mx-auto rounded-2xl overflow-hidden bg-black">
-                  {mediaKind === 'video' ? (
-                    <video src={mediaUrl} className="w-full h-full object-cover" controls />
-                  ) : (
-                    <img src={mediaUrl} alt="" className="w-full h-full object-cover" />
-                  )}
+              {/* Hashtag Quick Insertion Fields */}
+              <div className="flex flex-col gap-2">
+                <label className="text-white/40 text-[10px] uppercase tracking-wider font-bold">Quick Hashtags</label>
+                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                  {['#vibes', '#chill', '#aesthetic', '#mood', '#nightlife', '#groove', '#slay', '#blaze', '#trends'].map(tag => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        if (!caption.includes(tag)) {
+                          setCaption(prev => {
+                            const trimmed = prev.trim();
+                            return trimmed ? `${trimmed} ${tag}` : tag;
+                          });
+                        }
+                      }}
+                      className="shrink-0 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-[#00F0FF] border border-white/5 hover:border-[#00F0FF]/20 transition-all text-[11px] font-mono font-medium"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mood Selection Form Field */}
+              <div className="flex flex-col gap-2">
+                <label className="text-white/40 text-[10px] uppercase tracking-wider font-bold">Vibe Mood</label>
+                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                  {MOODS.map(m => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setMood(m.id)}
+                      className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                        mood === m.id
+                          ? 'border-[#B026FF] bg-[#B026FF]/15 text-white shadow-[0_0_10px_rgba(176,38,255,0.15)]'
+                          : 'border-white/5 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      <span className="text-base leading-none">{m.emoji}</span>
+                      <span>{m.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Selected Music Display */}
+              {music && (
+                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#00F0FF]/5 border border-[#00F0FF]/15">
+                  <div className="flex items-center gap-2.5 overflow-hidden">
+                    <Music className="w-4 h-4 text-[#00F0FF] shrink-0 animate-pulse" />
+                    <div className="text-left overflow-hidden">
+                      <p className="text-[#00F0FF] text-xs font-bold truncate">{music.title}</p>
+                      <p className="text-white/40 text-[10px] truncate">Loop starting from {(music.start_ms / 1000).toFixed(0)}s</p>
+                    </div>
+                  </div>
                   <button
-                    onClick={() => { setMediaUrl(null); setMediaKind(null); }}
-                    className="absolute top-2 right-2 w-7 h-7 bg-black/60 rounded-full flex items-center justify-center"
+                    type="button"
+                    onClick={() => setMusic(null)}
+                    className="p-1 text-white/40 hover:text-red-400 transition-colors"
                   >
-                    <X className="w-4 h-4 text-white" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
-              ) : isReading ? (
-                <div className="flex items-center gap-2 text-white/40 text-xs py-10 justify-center">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Adding media…
-                </div>
-              ) : null}
+              )}
             </div>
 
-            {/* Attach bar — identical to Pulse, featuring Photo, Video, Color, #Tag, Mood, and Music */}
-            <div className="flex items-center gap-1 px-4 py-3 border-t border-white/8 overflow-x-auto no-scrollbar">
-              {!mediaUrl && !bgColor && (
-                <>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-full text-[#B026FF] hover:bg-[#B026FF]/10 transition-colors text-xs font-semibold shrink-0"
-                  >
-                    <Images className="w-5 h-5" /> Photos
-                  </button>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-full text-[#00F0FF] hover:bg-[#00F0FF]/10 transition-colors text-xs font-semibold shrink-0"
-                  >
-                    <Video className="w-5 h-5" /> Video
-                  </button>
-                </>
-              )}
-              {!mediaUrl && (
-                <button
-                  onClick={() => setShowColorPicker(true)}
-                  className={`flex items-center gap-1.5 px-2.5 py-2 rounded-full transition-colors text-xs font-semibold shrink-0 ${bgColor ? 'bg-white/10' : 'text-white/60 hover:bg-white/10 hover:text-white'}`}
-                  style={bgColor ? { color: bgColor } : undefined}
-                >
-                  <span className="w-5 h-5 rounded-full border border-white/30 shrink-0" style={{ backgroundColor: bgColor || 'transparent' }} />
-                  Color
-                </button>
-              )}
+            {/* Attach bar — featuring quick picker entries */}
+            <div className="flex items-center gap-1.5 px-4 py-3 border-t border-white/8 overflow-x-auto no-scrollbar">
               <button
                 onClick={insertHashtag}
-                className="flex items-center gap-1.5 px-2.5 py-2 rounded-full text-white/60 hover:bg-white/10 hover:text-white transition-colors text-xs font-semibold shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-colors text-xs font-semibold shrink-0"
               >
-                <Hash className="w-5 h-5" /> #Tag
+                <Hash className="w-4 h-4" /> Add #
               </button>
               <button
                 onClick={() => setShowMoodPicker(true)}
-                className="flex items-center gap-1.5 px-2.5 py-2 rounded-full text-white/60 hover:bg-white/10 hover:text-white transition-colors text-xs font-semibold shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-colors text-xs font-semibold shrink-0"
               >
-                <span className="text-base leading-none">{MOODS.find(m => m.id === mood)?.emoji}</span> Mood
+                <span className="text-sm leading-none">{MOODS.find(m => m.id === mood)?.emoji}</span> Mood picker
               </button>
               <button
                 onClick={() => setShowMusicPicker(true)}
-                className={`flex items-center gap-1.5 px-2.5 py-2 rounded-full transition-colors text-xs font-semibold shrink-0 ${music ? 'text-[#00F0FF] bg-[#00F0FF]/10' : 'text-white/60 hover:bg-white/10 hover:text-white'}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors text-xs font-semibold shrink-0 ${music ? 'text-[#00F0FF] bg-[#00F0FF]/10' : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'}`}
               >
-                <Music className="w-5 h-5" /> Music
+                <Music className="w-4 h-4" /> Pick Music
               </button>
             </div>
           </motion.div>
