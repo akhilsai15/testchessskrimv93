@@ -1207,6 +1207,13 @@ export default function IdentityScreen() {
                           {vibe.caption}
                         </span>
                       </div>
+                    ) : isVideo ? (
+                      <video 
+                        src={vibe.videoSrc} 
+                        muted 
+                        playsInline 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      />
                     ) : (
                       <img 
                         src={vibe.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80'} 
@@ -1272,12 +1279,19 @@ export default function IdentityScreen() {
                    index: i, 
                    type: isVideo ? 'vibe' : 'saved', 
                    isSavedTab: true,
-                   urls: savedItems.map(it => it.image || it.videoImageHover || it.videoImage || it.thumbnail),
+                   urls: savedItems.map(it => it.videoSrc || it.image || it.videoImageHover || it.videoImage || it.thumbnail || ''),
                    users: savedItems.map((it: any) => ({ ...it, username: it.handle || it.userName || it.user?.username || '@someone', avatar: it.avatar || it.userAvatar || it.user?.avatar || 'https://i.pravatar.cc/150' }))
                  })}
                >
                  {url ? (
                    <img src={url} alt="saved" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                 ) : item.videoSrc ? (
+                   <video 
+                     src={item.videoSrc} 
+                     muted 
+                     playsInline 
+                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                   />
                  ) : (
                    <div 
                      className="w-full h-full flex flex-col items-center justify-center p-3 text-center text-[10px] font-bold overflow-hidden select-none"
