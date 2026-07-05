@@ -373,6 +373,19 @@ export default function OtherUserProfileScreen() {
                   {post.text}
                 </span>
               </div>
+            ) : (post.videoSrc || post.type === 'video_thumb' || post.type?.includes('video') || (post.image || selectedMediaUrls[i])?.startsWith('data:video/')) ? (
+              <div className="w-full h-full relative overflow-hidden group/vid">
+                <video 
+                  src={post.videoSrc || post.image || selectedMediaUrls[i]} 
+                  className="w-full h-full object-cover transition-opacity group-hover:opacity-80" 
+                  muted 
+                  playsInline
+                  preload="metadata"
+                />
+                <div className="absolute top-2 right-2 bg-black/60 p-1.5 rounded-lg backdrop-blur-md z-10 flex items-center justify-center">
+                  <PlaySquare className="w-4 h-4 text-[#00F0FF]" />
+                </div>
+              </div>
             ) : (
               <img src={post.image || selectedMediaUrls[i]} alt="post" className="w-full h-full object-cover transition-opacity group-hover:opacity-80" />
             )}
