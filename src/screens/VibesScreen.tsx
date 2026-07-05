@@ -320,9 +320,8 @@ function VibeCard({
     }
   }, [isPlaying, isActive]);
 
-  // Image-only Vibes Background Music Sync
+  // Unified Precise Time-Based Audio and Progress Playback Controller for Image-Only Vibes
   useEffect(() => {
-    // If we have video, it plays its own sound
     if (vibe.videoSrc) {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -330,7 +329,6 @@ function VibeCard({
       return;
     }
 
-    // Resolve matching track URL
     const getAudioUrl = () => {
       if (vibe.audioUrl) return vibe.audioUrl;
       const title = vibe.audio || '';
@@ -340,51 +338,98 @@ function VibeCard({
       );
       if (found) return found.url;
       
-      // Deterministic hash based fallback so all mock image vibes have background audio
       const hash = title.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
       const fallbackTrack = CURATED_TRACKS[hash % CURATED_TRACKS.length];
       return fallbackTrack?.url;
     };
 
     const audioUrl = getAudioUrl();
-    if (!audioUrl) return;
+    if (!audioUrl) {
+      // Fallback virtual progress timeline for silent or text-only vibes
+      const interval = setInterval(() => {
+        if (isPlaying && isActive) {
+          setCurrentTime(prev => {
+            const next = prev + 0.05;
+            if (next >= duration) {
+              setTimeout(() => {
+                onNext();
+              }, 0);
+              return 0;
+            }
+            return next;
+          });
+        }
+      }, 50);
+      return () => clearInterval(interval);
+    }
 
-    let isNewAudio = false;
+    // Instantiate or sync the audio source
     if (!audioRef.current) {
       audioRef.current = new Audio(audioUrl);
-      audioRef.current.loop = true;
-      isNewAudio = true;
+      audioRef.current.loop = false; // We manage precise looping ourselves
     } else if (audioRef.current.src !== audioUrl) {
       audioRef.current.src = audioUrl;
-      isNewAudio = true;
+      audioRef.current.loop = false;
     }
 
-    // Sync volume/mute
-    audioRef.current.muted = muted;
+    const audio = audioRef.current;
+    audio.muted = muted;
 
+    const startSec = (vibe.start_ms || 0) / 1000;
+    const durationSec = duration;
+    const endSec = startSec + durationSec;
+
+    // Handle initial play/pause and position
     if (isPlaying && isActive) {
-      if (isNewAudio || audioRef.current.paused) {
-        const startTime = (vibe.start_ms || 0) / 1000;
-        audioRef.current.currentTime = startTime;
+      if (audio.paused) {
+        if (audio.currentTime < startSec || audio.currentTime >= endSec) {
+          audio.currentTime = startSec;
+        }
+        audio.play().catch(() => {});
       }
-      audioRef.current.play().catch(() => {});
     } else {
-      audioRef.current.pause();
+      audio.pause();
     }
+
+    // High-resolution interval to enforce precision playback boundaries and sync progress bar
+    const interval = setInterval(() => {
+      audio.muted = muted;
+
+      if (isPlaying && isActive) {
+        // Force play if it was paused
+        if (audio.paused) {
+          audio.play().catch(() => {});
+        }
+
+        const curr = audio.currentTime;
+
+        // Enforce boundary looping
+        if (curr < startSec || curr >= endSec) {
+          audio.currentTime = startSec;
+          setCurrentTime(0);
+          
+          if (curr >= endSec) {
+            setTimeout(() => {
+              onNext();
+            }, 0);
+          }
+        } else {
+          // Sync current progress state precisely
+          const elapsed = curr - startSec;
+          setCurrentTime(Math.max(0, Math.min(elapsed, durationSec)));
+        }
+      } else {
+        if (!audio.paused) {
+          audio.pause();
+        }
+      }
+    }, 50); // 50ms interval for flawless precision
 
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+      clearInterval(interval);
+      audio.pause();
     };
-  }, [isPlaying, isActive, muted, vibe.videoSrc, vibe.audio, vibe.audioUrl, vibe.start_ms]);
-
-  // Whenever the playhead loops or slide changes (currentTime === 0), reset audio to starting trimmed time
-  useEffect(() => {
-    if (currentTime === 0 && audioRef.current && isPlaying && isActive) {
-      audioRef.current.currentTime = (vibe.start_ms || 0) / 1000;
-    }
-  }, [currentTime, isPlaying, isActive, vibe.start_ms]);
+  }, [isPlaying, isActive, muted, vibe.videoSrc, vibe.audio, vibe.audioUrl, vibe.start_ms, duration, onNext]);
 
   useEffect(() => {
     return () => {
@@ -448,27 +493,7 @@ function VibeCard({
     lastTap.current = now;
   };
 
-  // Loop effect to simulate playback progress for image-only Vibes
-  useEffect(() => {
-    if (vibe.videoSrc) return; // Handled by video element's real timeupdate events
-    if (!isPlaying || !isActive) return;
 
-    const interval = setInterval(() => {
-      setCurrentTime(prev => {
-        const next = prev + 0.1;
-        if (next >= duration) {
-          // Trigger next outside the state update call stack using setTimeout to prevent rendering-phase state updates in VibesScreen
-          setTimeout(() => {
-            onNext();
-          }, 0);
-          return 0; // go to beginning
-        }
-        return next;
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isPlaying, isActive, duration, vibe.videoSrc, onNext]);
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
