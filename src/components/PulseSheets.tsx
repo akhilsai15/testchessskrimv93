@@ -542,6 +542,7 @@ export function PulseSendSheet({
           text: post.caption || post.text || '',
           caption: post.caption || post.text || '', sourcePostId: post.id,
           background: 'purple',
+          music_title: post.audio || post.music_title || null,
         };
         stored.unshift(newSpark);
         localStorage.setItem('skrimchat_sparks', JSON.stringify(stored));
