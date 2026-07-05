@@ -277,6 +277,11 @@ export default function IdentityScreen() {
         editedTexts = JSON.parse(localStorage.getItem('skrimchat_edited_post_texts') || '{}');
       } catch (e) {}
 
+      let commentCounts: Record<string, number> = {};
+      try {
+        commentCounts = JSON.parse(localStorage.getItem('skrimchat_comment_counts') || '{}');
+      } catch (e) {}
+
       const updatedCustom = customPosts
         .filter(p => p && p.id && !deletedIds.includes(p.id))
         .map((p: any) => {
@@ -288,6 +293,7 @@ export default function IdentityScreen() {
             avatar: user?.avatar || p.avatar || '',
             text: editedText !== undefined ? editedText : p.text,
             caption: editedText !== undefined ? editedText : p.caption,
+            comments: commentCounts[p.id] !== undefined ? commentCounts[p.id] : p.comments,
           };
         });
 
@@ -299,6 +305,7 @@ export default function IdentityScreen() {
             ...p,
             text: editedText !== undefined ? editedText : p.text,
             caption: editedText !== undefined ? editedText : p.caption,
+            comments: commentCounts[p.id] !== undefined ? commentCounts[p.id] : p.comments,
           };
         });
       setPosts([...updatedCustom, ...filteredMocks]);

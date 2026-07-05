@@ -7,6 +7,7 @@ import { PulseSendSheet } from './PulseSheets';
 import { ReactionRow } from './ReactionRow';
 import { triggerReactionAnimation } from '../lib/animations/reactionAnimations';
 import { generateMockStatsForBadge } from '../lib/mock/mockBadges';
+import { getPostComments, addPostComment, PulseComment } from '../lib/mock/pulseComments';
 
 interface ImmersivePostViewerProps {
   initialIndex: number;
@@ -48,11 +49,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
   const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
   const pressTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const [comments, setComments] = useState([
-    { id: 1, text: "Bhai kya scene hai 🔥", username: "@rahul_", avatar: "https://i.pravatar.cc/150?img=33" },
-    { id: 2, text: "Samosa khaya kya? 😂", username: "@priya_vibes", avatar: "https://i.pravatar.cc/150?img=47" },
-    { id: 3, text: "Wait till the end... 💀", username: "@amit_kumar", avatar: "https://i.pravatar.cc/150?img=12" },
-  ]);
+  const [comments, setComments] = useState<any[]>([]);
   const [commentInput, setCommentInput] = useState('');
   const [toastMessage, setToastMessage] = useState('');
   const [isSaved, setIsSaved] = useState(false);
@@ -75,6 +72,52 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
 
   const currentUrl = urls[currentIndex];
   const currentPost = users && users[currentIndex] ? users[currentIndex] : null;
+  const currentPostId = currentPost?.id || `immers_${currentIndex}`;
+  const totalCommentsCount = currentPost?.comments || 0;
+
+  useEffect(() => {
+    const loadedComments = getPostComments(currentPostId, totalCommentsCount).map((c: any) => ({
+      ...c,
+      username: c.username || (c.handle.startsWith('@') ? c.handle : `@${c.handle}`),
+    }));
+    setComments(loadedComments);
+  }, [currentPostId, totalCommentsCount]);
+
+  const handleSubmitComment = () => {
+    if (!commentInput.trim()) return;
+    const text = commentInput.trim();
+    const newId = `${currentPostId}_${user?.username?.replace('@', '') || 'you'}_${Date.now()}`;
+    const newComment: PulseComment = {
+      id: newId,
+      handle: user?.username?.replace('@', '') || 'you',
+      text: text,
+      pulses: 0,
+      time: 'Just now',
+      avatar: user?.avatar || 'https://i.pravatar.cc/150?u=you',
+    };
+    
+    // Persist to database
+    addPostComment(currentPostId, newComment);
+    
+    // Add to local state (mapped for ImmersivePostViewer rendering compatibility)
+    const mappedComment = {
+      ...newComment,
+      username: user?.username || '@me',
+    };
+    
+    setComments(prev => [...prev, mappedComment]);
+    setCommentInput('');
+    
+    // Increment count in localStorage and dispatch update events
+    try {
+      const counts = JSON.parse(localStorage.getItem('skrimchat_comment_counts') || '{}');
+      counts[currentPostId] = (counts[currentPostId] || totalCommentsCount) + 1;
+      localStorage.setItem('skrimchat_comment_counts', JSON.stringify(counts));
+    } catch (e) {}
+    
+    window.dispatchEvent(new Event('skrimchat_custom_posts_updated'));
+    window.dispatchEvent(new Event('skrimchat_comment_added'));
+  };
   const isTextOnly = !!(currentPost && !currentPost.image && (!currentPost.images || currentPost.images.length === 0) && !currentPost.videoSrc && !currentPost.type?.includes('video') && currentPost.text);
   
   // Determine author for the current slide
@@ -636,7 +679,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
             </button>
             <button onClick={(e) => { setShowCommentsSheet(true); addRipple(e); }} className="flex flex-col items-center gap-1 group">
               <MessageCircle className="w-7 h-7 text-white group-hover:text-[#00F0FF] transition-colors drop-shadow-md lg:group-hover:scale-110 duration-300" />
-              <span className="text-xs font-bold text-white">{482 + comments.length - 3}</span>
+              <span className="text-xs font-bold text-white">{comments.length}</span>
             </button>
             <button onClick={(e) => { setShowShareMenu(true); addRipple(e); }} className="flex flex-col items-center gap-1 group">
               <Share className="w-7 h-7 text-white group-hover:text-[#B026FF] transition-colors drop-shadow-md lg:group-hover:scale-110 duration-300" />
@@ -685,7 +728,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
                             </p>
                           </div>
                         ))}
-                        <button onClick={() => setShowCommentsSheet(true)} className="text-xs font-semibold text-[#00F0FF] mt-1 text-left w-full hover:underline">View all {482 + comments.length - 3} comments →</button>
+                        <button onClick={() => setShowCommentsSheet(true)} className="text-xs font-semibold text-[#00F0FF] mt-1 text-left w-full hover:underline">View all {comments.length} comments →</button>
                     </div>
                 </div>
              </div>
@@ -754,7 +797,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
               <div className="p-6 pb-2 border-b border-white/10 shrink-0">
                 <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6" />
                 <div className="flex justify-between items-center bg-[#111]">
-                  <h3 className="text-lg font-bold text-white">Comments <span className="text-gray-500 text-sm">{482 + comments.length - 3}</span></h3>
+                  <h3 className="text-lg font-bold text-white">Comments <span className="text-gray-500 text-sm">{comments.length}</span></h3>
                   <button onClick={() => setShowCommentsSheet(false)} className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition"><X className="w-4 h-4 text-white" /></button>
                 </div>
               </div>
@@ -807,29 +850,13 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
                     placeholder="Type a comment..."
                     className="flex-1 bg-white/10 rounded-full px-4 py-2 text-sm text-white outline-none border border-transparent focus:border-[#B026FF]/50 transition"
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && commentInput.trim()) {
-                        setComments(prev => [...prev, {
-                          id: Date.now(),
-                          text: commentInput.trim(),
-                          username: user?.username || '@me',
-                          avatar: user?.avatar || 'https://i.pravatar.cc/150'
-                        }]);
-                        setCommentInput('');
+                      if (e.key === 'Enter') {
+                        handleSubmitComment();
                       }
                     }}
                  />
                  <button 
-                  onClick={() => {
-                    if (commentInput.trim()) {
-                      setComments(prev => [...prev, {
-                        id: Date.now(),
-                        text: commentInput.trim(),
-                        username: user?.username || '@me',
-                        avatar: user?.avatar || 'https://i.pravatar.cc/150'
-                      }]);
-                      setCommentInput('');
-                    }
-                  }}
+                  onClick={handleSubmitComment}
                   className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${commentInput.trim() ? 'bg-[#B026FF] text-white' : 'bg-white/10 text-white/30'}`}>
                     <Send className="w-4 h-4 ml-0.5" />
                  </button>
