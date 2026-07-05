@@ -418,11 +418,41 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
                  className="w-full h-full object-cover pointer-events-none"
               />
             ) : (
-                <img
-                  src={currentUrl}
-                  alt="post"
-                  className="w-full h-full object-cover pointer-events-none"
-                />
+                (() => {
+                  const currentPost = users && users[currentIndex] ? users[currentIndex] : null;
+                  const isTextOnly = currentPost && !currentPost.image && (!currentPost.images || currentPost.images.length === 0) && !currentPost.videoSrc && !currentPost.type?.includes('video') && currentPost.text;
+                  if (isTextOnly) {
+                    const textBgColor = currentPost?.bgColor;
+                    const gradients = [
+                      'linear-gradient(to bottom right, #1a0030, #0d001a)',
+                      'linear-gradient(to bottom right, #001a30, #00060d)',
+                      'linear-gradient(to bottom right, #1a1a00, #0d0d00)',
+                      'linear-gradient(to bottom right, #001a0d, #000d06)',
+                      'linear-gradient(to bottom right, #1a000d, #0d0006)',
+                    ];
+                    const textBgGradient = currentPost?.id ? gradients[currentPost.id.charCodeAt(currentPost.id.length - 1) % gradients.length] : gradients[0];
+                    return (
+                      <div 
+                        className="w-full h-full flex items-center justify-center p-8 text-center select-none"
+                        style={{ 
+                          backgroundColor: textBgColor || undefined,
+                          backgroundImage: !textBgColor ? textBgGradient : undefined
+                        }}
+                      >
+                        <p className="text-white font-extrabold text-lg sm:text-xl md:text-2xl break-words leading-relaxed max-w-full overflow-y-auto max-h-full">
+                          {currentPost.text}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <img
+                      src={currentUrl}
+                      alt="post"
+                      className="w-full h-full object-cover pointer-events-none"
+                    />
+                  );
+                })()
             )}
 
             {showBigPulse && (

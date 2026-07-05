@@ -881,6 +881,7 @@ export default function IdentityScreen() {
               return sortedPosts.map((post, i) => {
                 const url = sortedUrls[i];
                 const isPinned = pinnedPostIds.includes(post.id);
+                const isTextOnly = !post.image && (!post.images || post.images.length === 0) && !post.videoSrc && !post.type?.includes('video') && post.text;
                 return (
                 <motion.div 
                   initial={{ opacity: 0 }}
@@ -891,10 +892,34 @@ export default function IdentityScreen() {
                   onClick={() => setSelectedMedia({ 
                     index: i, 
                     type: 'post', 
-                    urls: sortedUrls
+                    urls: sortedUrls,
+                    users: sortedPosts
                   })}
                 >
-                  <img src={url} alt="post" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  {isTextOnly ? (
+                    <div 
+                      className="w-full h-full flex items-center justify-center p-3 text-center"
+                      style={{ 
+                        backgroundColor: post.bgColor || undefined,
+                        backgroundImage: !post.bgColor ? (() => {
+                          const gradients = [
+                            'linear-gradient(to bottom right, #1a0030, #0d001a)',
+                            'linear-gradient(to bottom right, #001a30, #00060d)',
+                            'linear-gradient(to bottom right, #1a1a00, #0d0d00)',
+                            'linear-gradient(to bottom right, #001a0d, #000d06)',
+                            'linear-gradient(to bottom right, #1a000d, #0d0006)',
+                          ];
+                          return gradients[post.id.charCodeAt(post.id.length - 1) % gradients.length] || gradients[0];
+                        })() : undefined
+                      }}
+                    >
+                      <span className="text-white font-bold text-[10px] sm:text-xs md:text-sm line-clamp-4 break-words leading-tight">
+                        {post.text}
+                      </span>
+                    </div>
+                  ) : (
+                    <img src={url} alt="post" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  )}
                   {isPinned && (
                     <div className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center pointer-events-none">
                       <Pin className="w-3 h-3 text-[#00F0FF] fill-[#00F0FF]" />

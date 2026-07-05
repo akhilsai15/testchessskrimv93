@@ -48,7 +48,7 @@ export default function OtherUserProfileScreen() {
 
   const [activeTab, setActiveTab] = useState<'posts'|'vibes'|'tagged'>('posts');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [selectedMedia, setSelectedMedia] = useState<{index: number, type: 'post'|'vibe'|'saved'|'repost'|'tagged'|string, urls: string[]} | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<{index: number, type: 'post'|'vibe'|'saved'|'repost'|'tagged'|string, urls: string[], users?: any[]} | null>(null);
 
   const currentUser = useCurrentUser();
   const followStatus = useFollowStatus(user.username);
@@ -345,13 +345,37 @@ export default function OtherUserProfileScreen() {
         {postsGrid.map((p, i) => {
           const post: any = p;
           const isPinned = post.id && pinnedPostIds.includes(post.id);
+          const isTextOnly = !post.image && (!post.images || post.images.length === 0) && !post.videoSrc && !post.type?.includes('video') && post.text;
           return (
           <div 
              key={post.id || i} 
              className="aspect-square bg-gray-900 border border-white/5 relative cursor-pointer group"
-             onClick={() => setSelectedMedia({ index: i, type: post.type || 'post', urls: selectedMediaUrls })}
+             onClick={() => setSelectedMedia({ index: i, type: post.type || 'post', urls: selectedMediaUrls, users: postsGrid })}
           >
-            <img src={post.image || selectedMediaUrls[i]} alt="post" className="w-full h-full object-cover transition-opacity group-hover:opacity-80" />
+            {isTextOnly ? (
+              <div 
+                className="w-full h-full flex items-center justify-center p-3 text-center"
+                style={{ 
+                  backgroundColor: post.bgColor || undefined,
+                  backgroundImage: !post.bgColor ? (() => {
+                    const gradients = [
+                      'linear-gradient(to bottom right, #1a0030, #0d001a)',
+                      'linear-gradient(to bottom right, #001a30, #00060d)',
+                      'linear-gradient(to bottom right, #1a1a00, #0d0d00)',
+                      'linear-gradient(to bottom right, #001a0d, #000d06)',
+                      'linear-gradient(to bottom right, #1a000d, #0d0006)',
+                    ];
+                    return gradients[post.id.charCodeAt(post.id.length - 1) % gradients.length] || gradients[0];
+                  })() : undefined
+                }}
+              >
+                <span className="text-white font-bold text-[10px] sm:text-xs md:text-sm line-clamp-4 break-words leading-tight">
+                  {post.text}
+                </span>
+              </div>
+            ) : (
+              <img src={post.image || selectedMediaUrls[i]} alt="post" className="w-full h-full object-cover transition-opacity group-hover:opacity-80" />
+            )}
             {isPinned && (
               <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center">
                  <Pin className="w-3 h-3 text-[#00F0FF] fill-[#00F0FF]" />
@@ -384,6 +408,7 @@ export default function OtherUserProfileScreen() {
           type={selectedMedia.type as any}
           urls={selectedMedia.urls}
           user={user}
+          users={selectedMedia.users}
           onClose={() => setSelectedMedia(null)}
         />
       )}
