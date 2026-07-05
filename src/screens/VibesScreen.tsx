@@ -147,6 +147,14 @@ function VibeCard({
   const [commentCount, setCommentCount] = useState(() => vibe?.comments ?? 0);
   const [burst, setBurst]   = useState<{ x: number; y: number } | null>(null);
   const [showComments, setShowComments] = useState(false);
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  const [sharesCount, setSharesCount] = useState(() => {
+    try {
+      if (!vibe?.id) return vibe?.shares ?? 0;
+      const counts: Record<string, number> = JSON.parse(localStorage.getItem('skrimchat_vibe_shares') || '{}');
+      return counts[vibe.id] ?? vibe?.shares ?? 0;
+    } catch { return vibe?.shares ?? 0; }
+  });
 
   const [newComment, setNewComment] = useState('');
   const [commentsList, setCommentsList] = useState<any[]>([]);
@@ -258,17 +266,19 @@ function VibeCard({
   const [toastMessage, setToastMessage] = useState('');
 
   const handleShare = () => {
+    setShowShareSheet(true);
+  };
+
+  const handleShareComplete = () => {
+    setShowShareSheet(false);
     incrementStat('shares', 1);
-    const shareUrl = `${window.location.origin}/vibes?id=${vibe.id}`;
+    const newShares = sharesCount + 1;
+    setSharesCount(newShares);
     try {
-      navigator.clipboard.writeText(shareUrl);
-      setToastMessage('Link copied to clipboard! 🚀');
-    } catch (err) {
-      setToastMessage('Shared vibe with friends! 💜');
-    }
-    setTimeout(() => {
-      setToastMessage('');
-    }, 2000);
+      const counts: Record<string, number> = JSON.parse(localStorage.getItem('skrimchat_vibe_shares') || '{}');
+      counts[vibe.id] = newShares;
+      localStorage.setItem('skrimchat_vibe_shares', JSON.stringify(counts));
+    } catch (e) {}
   };
   const lastTap = useRef(0);
 
@@ -758,7 +768,7 @@ function VibeCard({
               title="Share Link"
             >
               <Share2 className="w-4 h-4" />
-              <span className="text-[10px] font-bold font-mono">{fmt(vibe.shares)}</span>
+              <span className="text-[10px] font-bold font-mono">{fmt(sharesCount)}</span>
             </button>
 
             {/* Audio Widget */}
@@ -828,6 +838,30 @@ function VibeCard({
         </div>
 
       </div>
+
+      <PulseSendSheet
+        isOpen={showShareSheet}
+        onClose={() => setShowShareSheet(false)}
+        post={{
+          id: vibe.id,
+          image: vibe.thumbnail || '',
+          user: vibe.user,
+          handle: vibe.handle,
+          avatar: vibe.avatar,
+          caption: vibe.caption || '',
+          text: vibe.caption || '',
+          audio: vibe.audio || '',
+          mood: vibe.mood || ''
+        }}
+        currentUser={currentUser}
+        onShareComplete={(type: string, msg: string) => {
+          handleShareComplete();
+          if (msg) {
+            setToastMessage(msg);
+            setTimeout(() => setToastMessage(''), 2000);
+          }
+        }}
+      />
 
     </div>
   );
