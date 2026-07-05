@@ -77,7 +77,7 @@ export function PulseCommentsSheet({
           >
             <div className="p-4 border-b border-white/10 shrink-0 flex items-center justify-between sticky top-0 bg-[rgba(20,20,20,0.95)] z-10 rounded-t-3xl">
               <h3 className="text-lg font-bold text-white pl-4">
-                Comments <span className="text-gray-500 font-normal text-sm ml-1">({postCommentCount})</span>
+                Comments <span className="text-gray-500 font-normal text-sm ml-1">({comments.length})</span>
               </h3>
               <button onClick={onClose} className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors">
                 <X className="w-5 h-5 text-gray-400" />

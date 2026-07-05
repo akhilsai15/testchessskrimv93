@@ -96,13 +96,43 @@ function writeStore(store: Record<string, PulseComment[]>) {
 }
 
 /** Loads (or generates + persists) the comment list for a post. */
-export function getPostComments(postId: string, displayCount: number): PulseComment[] {
+export function getPostComments(postId: string, displayCount?: number): PulseComment[] {
   const store = readStore();
   if (store[postId]) return store[postId];
-  const generated = generateComments(postId, displayCount);
+
+  const count = displayCount !== undefined ? displayCount : getPostCommentCount(postId);
+  const generated = generateComments(postId, count);
   store[postId] = generated;
   writeStore(store);
   return generated;
+}
+
+/** Returns the current comment count for a post. If comments exist in store, return that count. Otherwise, return defaultCount or a seeded count if it's a mock post. */
+export function getPostCommentCount(postId: string, defaultCount?: number): number {
+  const store = readStore();
+  if (store[postId]) {
+    return store[postId].length;
+  }
+  
+  // Try reading from skrimchat_comment_counts
+  try {
+    const counts = JSON.parse(localStorage.getItem('skrimchat_comment_counts') || '{}');
+    if (counts[postId] !== undefined) {
+      return counts[postId];
+    }
+  } catch (e) {}
+
+  if (defaultCount !== undefined && defaultCount > 0) {
+    return defaultCount;
+  }
+
+  // Fallback for mock/stable posts so they don't show 0
+  if (postId && (postId.startsWith('post_stable_') || (postId.startsWith('post_') && !postId.includes('_')))) {
+    const seed = seedFromString(postId);
+    return 100 + (seed * 3571) % 1900; // aligns with skrimAlgorithm.ts/mockPosts
+  }
+
+  return defaultCount || 0;
 }
 
 /** Prepends a new user-written comment and persists it. */
@@ -112,5 +142,13 @@ export function addPostComment(postId: string, comment: PulseComment): PulseComm
   const updated = [comment, ...existing];
   store[postId] = updated;
   writeStore(store);
+
+  // Sync to skrimchat_comment_counts in localStorage
+  try {
+    const counts = JSON.parse(localStorage.getItem('skrimchat_comment_counts') || '{}');
+    counts[postId] = updated.length;
+    localStorage.setItem('skrimchat_comment_counts', JSON.stringify(counts));
+  } catch (e) {}
+
   return updated;
 }

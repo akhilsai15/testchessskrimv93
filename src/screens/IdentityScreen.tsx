@@ -14,6 +14,7 @@ import { useOfflineStore } from '../store/offlineStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import { ImmersivePostViewer } from '../components/ImmersivePostViewer';
+import { getPostCommentCount } from '../lib/mock/pulseComments';
 import { FollowButton } from '../components/ui';
 import { ShareProfileSheet } from '../components/ShareProfileSheet';
 import { StatBreakdownSheet } from '../components/StatBreakdownSheet';
@@ -294,7 +295,7 @@ export default function IdentityScreen() {
             avatar: user?.avatar || p.avatar || '',
             text: editedText !== undefined ? editedText : p.text,
             caption: editedText !== undefined ? editedText : p.caption,
-            comments: commentCounts[p.id] !== undefined ? commentCounts[p.id] : p.comments,
+            comments: getPostCommentCount(p.id, p.comments),
           };
         });
 
@@ -306,7 +307,7 @@ export default function IdentityScreen() {
             ...p,
             text: editedText !== undefined ? editedText : p.text,
             caption: editedText !== undefined ? editedText : p.caption,
-            comments: commentCounts[p.id] !== undefined ? commentCounts[p.id] : p.comments,
+            comments: getPostCommentCount(p.id, p.comments),
           };
         });
       setPosts([...updatedCustom, ...filteredMocks]);
@@ -370,7 +371,7 @@ export default function IdentityScreen() {
         ...p,
         text: editedTexts[p.id] !== undefined ? editedTexts[p.id] : p.text,
         caption: editedTexts[p.id] !== undefined ? editedTexts[p.id] : p.caption,
-        comments: commentCounts[p.id] !== undefined ? commentCounts[p.id] : p.comments,
+        comments: getPostCommentCount(p.id, p.comments),
       };
     }).filter(Boolean);
     setSavedItems(saved as any[]);
@@ -384,7 +385,7 @@ export default function IdentityScreen() {
           ...p,
           text: editedTexts[p.id] !== undefined ? editedTexts[p.id] : p.text,
           caption: editedTexts[p.id] !== undefined ? editedTexts[p.id] : p.caption,
-          comments: commentCounts[p.id] !== undefined ? commentCounts[p.id] : p.comments,
+          comments: getPostCommentCount(p.id, p.comments),
         };
         if (item.originalPost) {
           return { ...item, originalPost: updatedP };

@@ -19,6 +19,7 @@ import { BadgeRow } from '../components/BadgeComponents';
 import { ReactionRow } from '../components/ReactionRow';
 import { triggerReactionAnimation } from '../lib/animations/reactionAnimations';
 import { PulseCommentsSheet, PulseReshareSheet, PulseSendSheet } from '../components/PulseSheets';
+import { getPostCommentCount } from '../lib/mock/pulseComments';
 import { generateMockStatsForBadge } from '../lib/mock/mockBadges';
 import { incrementStat } from '../lib/mock/achievementEngine';
 import { getSparks } from '../lib/mock/mockServices';
@@ -2722,7 +2723,7 @@ export default function PulseScreen() {
         isSaved: savedList.includes(p.id),
         isLiked: likedList.includes(p.id),
         likes: likeCounts[p.id] ?? p.likes,
-        comments: commentCounts[p.id] ?? p.comments,
+        comments: getPostCommentCount(p.id, p.comments),
         shares: shareCounts[p.id] ?? p.shares,
         reactions: reactionCounts[p.id] ?? p.reactions,
         myReactionId: myReactions[p.id] || null,
@@ -2880,7 +2881,7 @@ export default function PulseScreen() {
       isSaved: saved.includes(p.id),
       isLiked: liked.includes(p.id),
       likes: counts[p.id] ?? p.likes,
-      comments: cc[p.id] ?? p.comments,
+      comments: getPostCommentCount(p.id, p.comments),
       shares: sc[p.id] ?? p.shares,
       reactions: reactionCounts[p.id] ?? p.reactions,
       myReactionId: myReactions[p.id] || null,
