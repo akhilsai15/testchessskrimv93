@@ -252,6 +252,7 @@ export function PulseReshareSheet({
           hasViewed: false, views: 0, energy: 'COLD',
           reactions: { pulse: 0, blaze: 0, vibe: 0 },
           type: thumbnail ? 'image' : 'text', image: thumbnail,
+          text: post.caption || post.text || '',
           caption: post.caption || post.text || '', sourcePostId: post.id,
         });
         localStorage.setItem('skrimchat_sparks', JSON.stringify(stored));
@@ -496,7 +497,7 @@ export function PulseSendSheet({
     if (!post) return;
     try {
       const stored = JSON.parse(localStorage.getItem('skrimchat_sparks') || '[]');
-      const sparkId = isSpark ? post.id : `postspark_${post.id}`;
+      const sparkId = isSpark ? `repost_${post.id}_${Date.now()}` : `postspark_${post.id}`;
       if (!stored.some((s: any) => s.id === sparkId)) {
         const thumbnail = post.image || post.images?.[0] || null;
         stored.unshift({
@@ -506,6 +507,7 @@ export function PulseSendSheet({
           hasViewed: false, views: 0, energy: 'COLD',
           reactions: { pulse: 0, blaze: 0, vibe: 0 },
           type: thumbnail ? 'image' : 'text', image: thumbnail,
+          text: post.caption || post.text || '',
           caption: post.caption || post.text || '', sourcePostId: isSpark ? null : post.id,
         });
         localStorage.setItem('skrimchat_sparks', JSON.stringify(stored));
