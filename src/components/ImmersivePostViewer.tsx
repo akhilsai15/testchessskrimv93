@@ -119,7 +119,14 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
     window.dispatchEvent(new Event('skrimchat_custom_posts_updated'));
     window.dispatchEvent(new Event('skrimchat_comment_added'));
   };
-  const isTextOnly = !!(currentPost && !currentPost.image && (!currentPost.images || currentPost.images.length === 0) && !currentPost.videoSrc && !currentPost.type?.includes('video') && currentPost.text);
+  const isTextOnly = !!(
+    currentPost && 
+    !currentPost.image && 
+    (!currentPost.images || currentPost.images.length === 0) && 
+    !currentPost.videoSrc && 
+    (currentPost.type === 'text' || (!currentPost.type?.includes('video') && !currentPost.type?.includes('image'))) && 
+    (currentPost.text || currentPost.caption)
+  );
   
   // Determine author for the current slide
   const authorRaw = currentPost || user;
@@ -530,7 +537,7 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
                       }}
                     >
                       <p className="text-white font-extrabold text-lg sm:text-xl md:text-2xl break-words leading-relaxed max-w-full overflow-y-auto max-h-full">
-                        {currentPost?.text}
+                        {currentPost?.text || currentPost?.caption}
                       </p>
                     </div>
                   );
