@@ -38,6 +38,7 @@ import {
 import { SKRIM_REACTIONS, mockUsers } from "../lib/mock/mockData";
 import { MOCK_CHATS } from "../lib/mock/mockChatDirectory";
 import { QRCodeSVG } from "qrcode.react";
+import { generateVideoThumbnail } from "../lib/services/thumbnailService";
 import {
   getQuizTally,
   submitQuizAnswer,
@@ -76,6 +77,107 @@ interface SparkViewerProps {
     | "highlight"
     | "create-highlight"
     | null;
+}
+
+interface SparkThumbnailProps {
+  spark: any;
+  className?: string;
+}
+
+export function SparkThumbnail({ spark, className = "w-full h-full object-cover" }: SparkThumbnailProps) {
+  const [thumbUrl, setThumbUrl] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    let active = true;
+    if (!spark) return;
+
+    if (spark.type === "image" && spark.image) {
+      setThumbUrl(spark.image);
+      setLoading(false);
+      return;
+    }
+
+    if (spark.type === "text") {
+      setLoading(false);
+      return;
+    }
+
+    // It's a video or a vibe with video content!
+    const videoUrl = spark.video || spark.videoSrc;
+    if (!videoUrl) {
+      setThumbUrl(spark.image || 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=400&h=700&fit=crop');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    generateVideoThumbnail(videoUrl)
+      .then((url) => {
+        if (active) {
+          setThumbUrl(url);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setThumbUrl(spark.image || 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=400&h=700&fit=crop');
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [spark]);
+
+  if (spark?.type === "text") {
+    return (
+      <div
+        className="w-full h-full flex flex-col justify-center items-center text-center p-1"
+        style={{
+          background:
+            spark.backgroundTheme ||
+            (spark.background === "fire"
+              ? "linear-gradient(to bottom, #FF416C, #FF4B2B)"
+              : spark.background === "purple"
+                ? "linear-gradient(to bottom right, #B026FF, #00F0FF)"
+                : "#121212"),
+        }}
+      >
+        <span className="text-[7px] text-white font-bold leading-tight line-clamp-4 px-1 select-none">
+          {spark.text || spark.caption}
+        </span>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="w-full h-full bg-[#121215] flex items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-[pulse_1.5s_infinite]" />
+        <span className="text-[10px] text-white/40 font-medium">⏳</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full h-full">
+      <img
+        src={thumbUrl}
+        alt="Preview frame"
+        className={className}
+        referrerPolicy="no-referrer"
+      />
+      {spark.type === "video" && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+          <div className="w-5 h-5 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg">
+            <span className="text-[8px] text-white ml-0.5">▶</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function SparkViewer({
@@ -2012,27 +2114,7 @@ export function SparkViewer({
                     {/* Mini Preview */}
                     <div className="flex gap-3 mb-6 p-3 bg-white/5 rounded-xl border border-white/5">
                       <div className="w-12 h-16 rounded bg-black/50 overflow-hidden shrink-0">
-                        {spark.type === "video" ? (
-                          <video
-                            src={spark.video || "https://www.w3schools.com/html/mov_bbb.mp4"}
-                            className="w-full h-full object-cover"
-                            muted
-                            title="preview"
-                            onError={() => console.log('Spark video preview error')}
-                          />
-                        ) : spark.type === "image" ? (
-                          <img
-                            src={spark.image}
-                            className="w-full h-full object-cover"
-                            alt="preview"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col justify-center bg-gradient-to-br from-[#B026FF] to-[#00F0FF]">
-                            <p className="text-[6px] text-white font-bold p-1 overflow-hidden leading-tight">
-                              {renderTextWithTags(spark.text)}
-                            </p>
-                          </div>
-                        )}
+                        <SparkThumbnail spark={spark} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-white text-sm truncate font-medium">
@@ -2218,22 +2300,7 @@ export function SparkViewer({
                       <div className="absolute top-0 right-0 w-24 h-24 bg-[#B026FF]/20 blur-2xl rounded-full" />
                       <div className="flex items-start gap-4 relative z-10">
                         <div className="w-14 h-20 rounded bg-black/50 overflow-hidden shrink-0 border border-white/10 shadow-lg">
-                          {spark.type === "video" ? (
-                            <video
-                              src={spark.video}
-                              className="w-full h-full object-cover"
-                              muted
-                              title="preview"
-                            />
-                          ) : spark.type === "image" ? (
-                            <img
-                              src={spark.image}
-                              className="w-full h-full object-cover"
-                              alt="preview"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex flex-col justify-center bg-gradient-to-br from-[#B026FF] to-[#00F0FF]"></div>
-                          )}
+                          <SparkThumbnail spark={spark} />
                         </div>
                         <div className="flex-1 pt-1">
                           <p className="text-xs text-[#B026FF] font-bold mb-1">

@@ -8,6 +8,7 @@ import { AvatarWithRing } from './ui';
 import { getPostComments, addPostComment, PulseComment } from '../lib/mock/pulseComments';
 import { mockUsers } from '../lib/mock/mockData';
 import { containsFilteredKeyword, getPostModerationSettings } from '../lib/mock/mockSocialGraph';
+import { generateVideoThumbnail } from '../lib/services/thumbnailService';
 
 // ─── Comments Sheet ─────────────────────────────────────────────────────────
 
@@ -537,7 +538,7 @@ export function PulseSendSheet({
           hasViewed: false, views: 0, energy: 'COLD',
           reactions: { pulse: 0, blaze: 0, vibe: 0 },
           type: video ? 'video' : (thumbnail ? 'image' : 'text'),
-          image: thumbnail,
+          image: thumbnail || (video ? 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=400&h=700&fit=crop' : null),
           video: video,
           text: post.caption || post.text || '',
           caption: post.caption || post.text || '', sourcePostId: post.id,
@@ -547,6 +548,21 @@ export function PulseSendSheet({
         stored.unshift(newSpark);
         localStorage.setItem('skrimchat_sparks', JSON.stringify(stored));
         window.dispatchEvent(new CustomEvent('skrimchat_spark_reposted', { detail: stored[0] }));
+
+        // Asynchronously generate a high-quality video frame thumbnail and update
+        if (video) {
+          generateVideoThumbnail(video).then((thumbnailDataUrl) => {
+            try {
+              const updatedSparks = JSON.parse(localStorage.getItem('skrimchat_sparks') || '[]');
+              const index = updatedSparks.findIndex((s: any) => s.id === sparkId);
+              if (index !== -1) {
+                updatedSparks[index].image = thumbnailDataUrl;
+                localStorage.setItem('skrimchat_sparks', JSON.stringify(updatedSparks));
+                window.dispatchEvent(new CustomEvent('skrimchat_spark_reposted', { detail: updatedSparks[index] }));
+              }
+            } catch (err) {}
+          });
+        }
       }
       onShareComplete('spark', '✨ Shared to Spark Story!');
       onClose();
