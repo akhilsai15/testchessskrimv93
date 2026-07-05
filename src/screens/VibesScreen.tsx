@@ -597,18 +597,9 @@ function VibeCard({
                 }
               }}
             />
-          ) : vibe.bgColor ? (
-            <div 
-              className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 select-text"
-              style={{ backgroundColor: vibe.bgColor }}
-            >
-              <p className="text-[#0D0010] text-2xl md:text-4xl font-black text-center leading-relaxed max-w-xl font-sans tracking-tight">
-                {vibe.caption}
-              </p>
-            </div>
-          ) : (
+          ) : vibe.thumbnail ? (
             <motion.img
-              src={vibe.thumbnail || undefined}
+              src={vibe.thumbnail}
               alt=""
               className="absolute inset-0 w-full h-full object-contain"
               initial={{ opacity: 0 }}
@@ -616,6 +607,19 @@ function VibeCard({
               transition={{ duration: 0.4 }}
               draggable={false}
             />
+          ) : (
+            <div 
+              className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 select-text ${
+                !vibe.bgColor ? 'bg-gradient-to-br from-[#1b0a2a] via-[#0D0D14] to-[#0d0010]' : ''
+              }`}
+              style={vibe.bgColor ? { backgroundColor: vibe.bgColor } : undefined}
+            >
+              <p className={`text-2xl md:text-4xl font-black text-center leading-relaxed max-w-xl font-sans tracking-tight ${
+                vibe.bgColor ? 'text-[#0D0010]' : 'text-white'
+              }`}>
+                {vibe.caption}
+              </p>
+            </div>
           )}
 
           {/* Futuristic subtle grid overlay & scanline */}
