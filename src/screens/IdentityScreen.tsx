@@ -105,6 +105,7 @@ export default function IdentityScreen() {
   const navigate = useNavigate();
   const user = useCurrentUser();
   const [posts, setPosts] = useState<any[]>([]);
+  const [userVibes, setUserVibes] = useState<any[]>([]);
   const [savedItems, setSavedItems] = useState<any[]>([]);
   const [repostItems, setRepostItems] = useState<any[]>([]);
   const { savedPosts, repostedPosts, savedFullPosts, hydrate } = useSavedStore();
@@ -313,7 +314,33 @@ export default function IdentityScreen() {
       setPosts([...updatedCustom, ...filteredMocks]);
     };
 
+    const loadUserVibes = () => {
+      let customVibes: any[] = [];
+      try {
+        customVibes = JSON.parse(localStorage.getItem('skrimchat_user_vibes') || '[]');
+      } catch (e) {}
+
+      let deletedVibeIds: string[] = [];
+      try {
+        deletedVibeIds = JSON.parse(localStorage.getItem('skrimchat_deleted_vibe_ids') || '[]');
+      } catch (e) {}
+
+      const updatedCustom = customVibes
+        .filter(v => v && v.id && !deletedVibeIds.includes(v.id))
+        .map((v: any) => ({
+          ...v,
+          user: user?.fullName || user?.displayName || 'You',
+          handle: user?.username ? `@${user.username.replace('@', '')}` : v.handle || '@you',
+          avatar: user?.avatar || v.avatar || '',
+          text: v.caption || v.text,
+          image: v.thumbnail || v.image || '',
+        }));
+
+      setUserVibes(updatedCustom);
+    };
+
     loadUserPosts();
+    loadUserVibes();
     
     // Always call hydrate on mount to sync with localStorage in case it changed externally
     hydrate();
@@ -343,11 +370,18 @@ export default function IdentityScreen() {
     window.addEventListener('skrimchat_custom_posts_updated', onPostsUpdated);
     window.addEventListener('skrimchat_comment_added', onPostsUpdated);
 
+    const onVibesUpdated = () => {
+      loadUserVibes();
+      setRefreshTrigger(prev => prev + 1);
+    };
+    window.addEventListener('skrimchat_user_vibes_updated', onVibesUpdated);
+
     return () => {
       window.removeEventListener('skrimchat_post_saved', onSaved);
       window.removeEventListener('skrimchat_post_reposted', onReposted);
       window.removeEventListener('skrimchat_custom_posts_updated', onPostsUpdated);
       window.removeEventListener('skrimchat_comment_added', onPostsUpdated);
+      window.removeEventListener('skrimchat_user_vibes_updated', onVibesUpdated);
     };
   }, [user?.username]);
 
@@ -453,6 +487,31 @@ export default function IdentityScreen() {
     window.dispatchEvent(new Event('skrimchat_post_deleted'));
 
     setToastMessage('Post deleted successfully');
+    setSelectedMedia(null);
+  };
+
+  const handleDeleteVibe = (vibe: any) => {
+    if (!vibe || !vibe.id) return;
+    
+    try {
+      const deletedVibeIds = JSON.parse(localStorage.getItem('skrimchat_deleted_vibe_ids') || '[]');
+      if (!deletedVibeIds.includes(vibe.id)) {
+        deletedVibeIds.push(vibe.id);
+        localStorage.setItem('skrimchat_deleted_vibe_ids', JSON.stringify(deletedVibeIds));
+      }
+    } catch (e) {
+      localStorage.setItem('skrimchat_deleted_vibe_ids', JSON.stringify([vibe.id]));
+    }
+
+    try {
+      const customVibes = JSON.parse(localStorage.getItem('skrimchat_user_vibes') || '[]');
+      const filteredCustom = customVibes.filter((v: any) => v.id !== vibe.id);
+      localStorage.setItem('skrimchat_user_vibes', JSON.stringify(filteredCustom));
+    } catch (e) {}
+
+    window.dispatchEvent(new Event('skrimchat_user_vibes_updated'));
+
+    setToastMessage('Vibe deleted successfully');
     setSelectedMedia(null);
   };
 
@@ -1101,30 +1160,71 @@ export default function IdentityScreen() {
         
         {activeTab === 'vibes' && (
           <div className="grid grid-cols-3 gap-0.5 pt-0.5">
-            {posts.slice(0, 6).map((post, i) => {
-              const url = `https://picsum.photos/400/700?random=${i+20}`;
-              return (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: (i % 6) * 0.05 }}
-                key={post.id} 
-                className="aspect-[9/16] bg-white/5 relative group cursor-pointer overflow-hidden"
-                onClick={() => setSelectedMedia({ 
-                  index: i, 
-                  type: 'vibe', 
-                  urls: posts.slice(0, 6).map((_, idx) => `https://picsum.photos/400/700?random=${idx+20}`)
-                })}
-              >
-                <img src={url} alt="vibe" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                <div className="absolute top-2 right-2">
-                   <PlaySquare className="w-4 h-4 text-white drop-shadow-md" />
-                </div>
-                <div className="absolute bottom-2 left-2 flex items-center gap-1 text-white text-[10px] font-bold drop-shadow-md">
-                   <PlaySquare className="w-3 h-3 fill-white/80" /> 1.{i}M
-                </div>
-              </motion.div>
-            )})}
+            {userVibes.length === 0 ? (
+              <div className="col-span-3 text-center py-20 text-gray-500 text-sm flex flex-col items-center justify-center gap-3 px-4">
+                <PlaySquare className="w-10 h-10 text-gray-600 mb-1 opacity-50" />
+                <p className="font-medium text-white/50 text-base">No vibes posted yet</p>
+                <p className="text-xs text-gray-500 max-w-xs leading-relaxed">
+                  Share your thoughts, photos, or videos in the Vibes section to see them here on your profile.
+                </p>
+              </div>
+            ) : (
+              userVibes.map((vibe, i) => {
+                const isVideo = !!vibe.videoSrc;
+                const isTextOnly = !vibe.thumbnail && !vibe.videoSrc;
+                const url = vibe.thumbnail || vibe.videoSrc || '';
+                
+                return (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: (i % 6) * 0.05 }}
+                    key={vibe.id} 
+                    className="aspect-[9/16] bg-white/5 relative group cursor-pointer overflow-hidden"
+                    onClick={() => setSelectedMedia({ 
+                      index: i, 
+                      type: 'vibe', 
+                      urls: userVibes.map(v => v.thumbnail || v.videoSrc || ''),
+                      users: userVibes
+                    })}
+                  >
+                    {isTextOnly ? (
+                      <div 
+                        className="w-full h-full flex items-center justify-center p-4 text-center select-none"
+                        style={{ 
+                          backgroundColor: vibe.bgColor || undefined,
+                          backgroundImage: !vibe.bgColor ? 'linear-gradient(to bottom right, #1b0a2a, #0D0D14, #0d0010)' : undefined
+                        }}
+                      >
+                        <span className="text-white font-bold text-[10px] sm:text-xs line-clamp-6 break-words leading-snug">
+                          {vibe.caption}
+                        </span>
+                      </div>
+                    ) : (
+                      <img 
+                        src={vibe.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80'} 
+                        alt="vibe thumbnail" 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      />
+                    )}
+                    
+                    <div className="absolute top-2 right-2">
+                       <PlaySquare className="w-4 h-4 text-white drop-shadow-md" />
+                    </div>
+                    
+                    {isVideo && (
+                      <div className="absolute top-2 left-2 bg-black/60 p-1 rounded text-[8px] text-[#00F0FF] font-bold tracking-wider">
+                        VIDEO
+                      </div>
+                    )}
+                    
+                    <div className="absolute bottom-2 left-2 flex items-center gap-1 text-white text-[10px] font-bold drop-shadow-md">
+                       <PlaySquare className="w-3 h-3 fill-white/80" /> {vibe.pulseCount || 0}
+                    </div>
+                  </motion.div>
+                );
+              })
+            )}
           </div>
         )}
 
@@ -1302,7 +1402,7 @@ export default function IdentityScreen() {
           user={user}
           users={selectedMedia.users}
           onClose={() => setSelectedMedia(null)}
-          onDeletePost={selectedMedia.type === 'post' ? handleDeletePost : undefined}
+          onDeletePost={selectedMedia.type === 'post' ? handleDeletePost : selectedMedia.type === 'vibe' ? handleDeleteVibe : undefined}
           onEditPost={selectedMedia.type === 'post' ? handleEditPost : undefined}
         />
       )}
