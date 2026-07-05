@@ -272,16 +272,35 @@ export default function IdentityScreen() {
         deletedIds = JSON.parse(localStorage.getItem('skrimchat_deleted_post_ids') || '[]');
       } catch (e) {}
 
+      let editedTexts: Record<string, string> = {};
+      try {
+        editedTexts = JSON.parse(localStorage.getItem('skrimchat_edited_post_texts') || '{}');
+      } catch (e) {}
+
       const updatedCustom = customPosts
         .filter(p => p && p.id && !deletedIds.includes(p.id))
-        .map(p => ({
-          ...p,
-          user: user?.fullName || user?.displayName || 'You',
-          handle: user?.username ? `@${user.username.replace('@', '')}` : p.handle || '@you',
-          avatar: user?.avatar || p.avatar || '',
-        }));
+        .map((p: any) => {
+          const editedText = editedTexts[p.id];
+          return {
+            ...p,
+            user: user?.fullName || user?.displayName || 'You',
+            handle: user?.username ? `@${user.username.replace('@', '')}` : p.handle || '@you',
+            avatar: user?.avatar || p.avatar || '',
+            text: editedText !== undefined ? editedText : p.text,
+            caption: editedText !== undefined ? editedText : p.caption,
+          };
+        });
 
-      const filteredMocks = mockPosts.slice(0, 6).filter(p => p && p.id && !deletedIds.includes(p.id));
+      const filteredMocks = mockPosts.slice(0, 6)
+        .filter(p => p && p.id && !deletedIds.includes(p.id))
+        .map((p: any) => {
+          const editedText = editedTexts[p.id];
+          return {
+            ...p,
+            text: editedText !== undefined ? editedText : p.text,
+            caption: editedText !== undefined ? editedText : p.caption,
+          };
+        });
       setPosts([...updatedCustom, ...filteredMocks]);
     };
 
@@ -384,6 +403,38 @@ export default function IdentityScreen() {
 
     setToastMessage('Post deleted successfully');
     setSelectedMedia(null);
+  };
+
+  const handleEditPost = (post: any, newText: string) => {
+    if (!post || !post.id) return;
+    
+    try {
+      const editedTexts = JSON.parse(localStorage.getItem('skrimchat_edited_post_texts') || '{}');
+      editedTexts[post.id] = newText;
+      localStorage.setItem('skrimchat_edited_post_texts', JSON.stringify(editedTexts));
+    } catch (e) {
+      localStorage.setItem('skrimchat_edited_post_texts', JSON.stringify({ [post.id]: newText }));
+    }
+
+    try {
+      const customPosts = JSON.parse(localStorage.getItem('skrimchat_custom_posts') || '[]');
+      const updatedCustom = customPosts.map((p: any) => {
+        if (p.id === post.id) {
+          return {
+            ...p,
+            text: newText,
+            caption: newText,
+          };
+        }
+        return p;
+      });
+      localStorage.setItem('skrimchat_custom_posts', JSON.stringify(updatedCustom));
+    } catch (e) {}
+
+    window.dispatchEvent(new Event('skrimchat_custom_posts_updated'));
+    window.dispatchEvent(new Event('skrimchat_post_deleted'));
+
+    setToastMessage('Post updated successfully');
   };
 
   const handleSaveProfile = () => {
@@ -1201,6 +1252,7 @@ export default function IdentityScreen() {
           users={selectedMedia.users}
           onClose={() => setSelectedMedia(null)}
           onDeletePost={selectedMedia.type === 'post' ? handleDeletePost : undefined}
+          onEditPost={selectedMedia.type === 'post' ? handleEditPost : undefined}
         />
       )}
 

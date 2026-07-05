@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Heart, MessageCircle, Share, Music, Send, Link as LinkIcon, Zap, Shield, SmilePlus, Bookmark, Trash2 } from 'lucide-react';
+import { X, Heart, MessageCircle, Share, Music, Send, Link as LinkIcon, Zap, Shield, SmilePlus, Bookmark, Trash2, Pencil } from 'lucide-react';
 import { SKRIM_REACTIONS } from '../lib/mock/mockData';
 import { BadgeRow } from './BadgeComponents';
 import { PulseSendSheet } from './PulseSheets';
@@ -16,6 +16,7 @@ interface ImmersivePostViewerProps {
   users?: any[];
   onClose: () => void;
   onDeletePost?: (post: any) => void;
+  onEditPost?: (post: any, newText: string) => void;
 }
 
 interface FloatingEmoji {
@@ -31,7 +32,7 @@ interface FloatingEmoji {
   rotation: number;
 }
 
-export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onClose, onDeletePost }: ImmersivePostViewerProps) {
+export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onClose, onDeletePost, onEditPost }: ImmersivePostViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [pulsed, setPulsed] = useState(false);
   const [pulsesCount, setPulsesCount] = useState(12000);
@@ -41,6 +42,8 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
   const [showCommentsSheet, setShowCommentsSheet] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editText, setEditText] = useState('');
   const [pulseRipples, setPulseRipples] = useState<{ id: number; x: number; y: number }[]>([]);
   const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
   const pressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -399,6 +402,19 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
         </div>
 
         <div className="flex items-center gap-2">
+          {onEditPost && currentPost && isTextOnly && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditText(currentPost?.text || currentPost?.caption || '');
+                setShowEditModal(true);
+              }}
+              title="Edit post text"
+              className="w-10 h-10 bg-[#00F0FF]/20 text-[#00F0FF] hover:bg-[#00F0FF]/30 rounded-full flex items-center justify-center transition backdrop-blur-md border border-[#00F0FF]/30 active:scale-95 z-[60]"
+            >
+              <Pencil className="w-4.5 h-4.5" />
+            </button>
+          )}
           {onDeletePost && currentPost && (
             <button
               onClick={(e) => {
@@ -875,6 +891,62 @@ export function ImmersivePostViewer({ initialIndex, type, urls, user, users, onC
                   className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium transition active:scale-95 text-sm shadow-[0_4px_20px_rgba(220,38,38,0.3)]"
                 >
                   Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Pulse Text Modal Overlay */}
+      <AnimatePresence>
+        {showEditModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/85 backdrop-blur-md z-[150] flex flex-col items-center justify-center p-6 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="bg-black/80 border border-[#00F0FF]/30 p-6 rounded-2xl max-w-sm w-full shadow-[0_0_50px_rgba(0,240,255,0.15)] backdrop-blur-xl text-left"
+            >
+              <div className="w-14 h-14 bg-[#00F0FF]/10 border border-[#00F0FF]/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Pencil className="w-6 h-6 text-[#00F0FF]" />
+              </div>
+              <h3 className="text-lg font-bold text-white text-center mb-2">Edit Pulse</h3>
+              <p className="text-xs text-white/50 text-center mb-4">Update the text content of your pulse.</p>
+              
+              <div className="mb-6">
+                <textarea
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  className="w-full h-32 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[#00F0FF]/50 text-sm resize-none focus:ring-1 focus:ring-[#00F0FF]/50"
+                  placeholder="What's on your mind?..."
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium transition active:scale-95 text-sm text-center"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    if (onEditPost && currentPost) {
+                      onEditPost(currentPost, editText);
+                    }
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-[#00F0FF] hover:bg-[#00D0EE] text-black font-semibold transition active:scale-95 text-sm shadow-[0_4px_20px_rgba(0,240,255,0.3)] text-center"
+                >
+                  Save Changes
                 </button>
               </div>
             </motion.div>

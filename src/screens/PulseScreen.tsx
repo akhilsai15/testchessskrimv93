@@ -2528,6 +2528,22 @@ export default function PulseScreen() {
   const [activeSendPostId, setActiveSendPostId] = useState<string | null>(null);
   const [storyBehindPostId, setStoryBehindPostId] = useState<string | null>(null);
   const [commentControlsPostId, setCommentControlsPostId] = useState<string | null>(null);
+
+  let editedTexts: Record<string, string> = {};
+  try {
+    editedTexts = JSON.parse(localStorage.getItem('skrimchat_edited_post_texts') || '{}');
+  } catch (e) {}
+
+  const displayedPosts = posts.map(p => {
+    if (p && p.id && editedTexts[p.id] !== undefined) {
+      return {
+        ...p,
+        text: editedTexts[p.id],
+        caption: editedTexts[p.id],
+      };
+    }
+    return p;
+  });
   const [fullscreenMedia, setFullscreenMedia] = useState<{ url: string, type: 'image' | 'video', images?: string[], initialIndex?: number } | null>(null);
 
   const handleMediaClick = (url: string, type: 'image' | 'video', images?: string[], initialIndex?: number) => {
@@ -3210,7 +3226,7 @@ export default function PulseScreen() {
       <div className="flex flex-col pt-4">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <PostSkeleton key={i} />)
-        ) : posts.map(post => {
+        ) : displayedPosts.map(post => {
           if (post.type === 'suggested_user') return <SuggestedUserCard key={post.id} post={post} />;
           if (post.type === 'pulse_battle')   return <PulseBattleCard   key={post.id} post={post} onVote={() => {}} />;
           if (post.type === 'collab_post')    return <CollabPost         key={post.id} post={post} onLike={handleLike} navigate={navigate} />;
