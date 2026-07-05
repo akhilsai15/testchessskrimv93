@@ -114,7 +114,7 @@ export default function OtherUserProfileScreen() {
   }
 
   const postsGrid = sortWithPinnedFirst(userPosts.slice(0, 9), user.username || '');
-  const selectedMediaUrls = postsGrid.map((p: any) => p.image || p.urls?.[0] || 'https://picsum.photos/400/400').filter(Boolean);
+  const selectedMediaUrls = postsGrid.map((p: any) => p.thumbnail || p.image || p.videoSrc || p.urls?.[0] || 'https://picsum.photos/400/400').filter(Boolean);
 
   return (
     <div className="w-full h-full bg-skrim-bg overflow-y-auto no-scrollbar pb-20 relative">
@@ -375,13 +375,21 @@ export default function OtherUserProfileScreen() {
               </div>
             ) : (post.videoSrc || post.type === 'video_thumb' || post.type?.includes('video') || (post.image || selectedMediaUrls[i])?.startsWith('data:video/')) ? (
               <div className="w-full h-full relative overflow-hidden group/vid">
-                <video 
-                  src={post.videoSrc || post.image || selectedMediaUrls[i]} 
-                  className="w-full h-full object-cover transition-opacity group-hover:opacity-80" 
-                  muted 
-                  playsInline
-                  preload="metadata"
-                />
+                {((post.image || selectedMediaUrls[i])?.startsWith('data:video/') || (!post.thumbnail && !post.image && post.videoSrc)) ? (
+                  <video 
+                    src={post.videoSrc || post.image || selectedMediaUrls[i]} 
+                    className="w-full h-full object-cover transition-opacity group-hover:opacity-80" 
+                    muted 
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  <img 
+                    src={post.thumbnail || post.image || selectedMediaUrls[i]} 
+                    alt="post" 
+                    className="w-full h-full object-cover transition-opacity group-hover:opacity-80" 
+                  />
+                )}
                 <div className="absolute top-2 right-2 bg-black/60 p-1.5 rounded-lg backdrop-blur-md z-10 flex items-center justify-center">
                   <PlaySquare className="w-4 h-4 text-[#00F0FF]" />
                 </div>

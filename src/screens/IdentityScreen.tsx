@@ -858,7 +858,7 @@ export default function IdentityScreen() {
               const sortedPosts = sortWithPinnedFirst(posts, user?.username || '');
               const sortedUrls = sortedPosts.map((post, idx) => {
                 if (post.type === 'video_thumb' || post.videoSrc) {
-                  return post.videoSrc || post.image || post.thumbnail || '';
+                  return post.thumbnail || post.image || post.videoSrc || '';
                 }
                 if (post.image) return post.image;
                 if (post.images && post.images.length > 0) return post.images[0];
@@ -919,13 +919,21 @@ export default function IdentityScreen() {
                     </div>
                   ) : (post.videoSrc || post.type === 'video_thumb' || post.type?.includes('video') || url?.startsWith('data:video/')) ? (
                     <div className="w-full h-full relative overflow-hidden group/vid">
-                      <video 
-                        src={url || post.videoSrc} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                        muted 
-                        playsInline
-                        preload="metadata"
-                      />
+                      {url?.startsWith('data:video/') || (!post.thumbnail && !post.image && post.videoSrc) ? (
+                        <video 
+                          src={post.videoSrc || url} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                          muted 
+                          playsInline
+                          preload="metadata"
+                        />
+                      ) : (
+                        <img 
+                          src={url || post.image || post.thumbnail} 
+                          alt="post" 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                        />
+                      )}
                       <div className="absolute top-2 right-2 bg-black/60 p-1.5 rounded-lg backdrop-blur-md z-10 flex items-center justify-center">
                         <PlaySquare className="w-4 h-4 text-[#00F0FF]" />
                       </div>

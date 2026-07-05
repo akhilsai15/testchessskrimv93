@@ -1439,7 +1439,7 @@ function TagPeopleSheet({ selected, onToggle, onClose }: {
 // post — Skrim decides the post shape from what you actually attached,
 // so there's no upfront type lock-in and no separate "Gallery" mode
 // that silently caps you at one photo.
-type MediaItem = { id: string; url: string; kind: 'image' | 'video' };
+type MediaItem = { id: string; url: string; kind: 'image' | 'video'; thumbnail?: string };
 const MAX_MEDIA = 10;
 
 // Swatch palette for colored text posts — bright, legible-with-black-text
@@ -1573,6 +1573,63 @@ function SchedulePicker({ isOpen, onClose, initialValue, onConfirm, onClear }: {
       )}
     </AnimatePresence>
   );
+}
+
+// Extract a preview frame from a video to use as a high-quality static thumbnail.
+function generateVideoThumbnail(videoUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.style.display = 'none';
+    video.preload = 'auto';
+    video.muted = true;
+    video.playsInline = true;
+    
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      reject(new Error('Thumbnail generation timed out'));
+    }, 4000);
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      video.onseeked = null;
+      video.onerror = null;
+      video.onloadedmetadata = null;
+    };
+
+    video.onseeked = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 360;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          cleanup();
+          resolve(dataUrl);
+        } else {
+          cleanup();
+          reject(new Error('Could not get 2D canvas context'));
+        }
+      } catch (err) {
+        cleanup();
+        reject(err);
+      }
+    };
+
+    video.onerror = () => {
+      cleanup();
+      reject(new Error('Failed to load video for thumbnail'));
+    };
+
+    video.onloadedmetadata = () => {
+      // Seek slightly forward to get a clear frame (avoiding initial black frame)
+      video.currentTime = Math.min(0.5, video.duration || 0);
+    };
+
+    video.src = videoUrl;
+    video.load();
+  });
 }
 
 function PulseCreateSheet({ isOpen, onClose, currentUser, onPost, onSchedule, draft, onSaveDraft, onDiscardDraft }: {
@@ -1727,13 +1784,37 @@ function PulseCreateSheet({ isOpen, onClose, currentUser, onPost, onSchedule, dr
     setIsReading(true);
     Promise.all(usable.map(f => new Promise<MediaItem>(resolve => {
       const r = new FileReader();
-      r.onload = () => resolve({
-        id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        url: r.result as string,
-        kind: f.type.startsWith('video/') ? 'video' : 'image',
-      });
+      r.onload = () => {
+        const fileUrl = r.result as string;
+        if (f.type.startsWith('video/')) {
+          generateVideoThumbnail(fileUrl)
+            .then(thumb => {
+              resolve({
+                id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                url: fileUrl,
+                kind: 'video',
+                thumbnail: thumb,
+              });
+            })
+            .catch((err) => {
+              console.error("Failed to generate video thumbnail:", err);
+              resolve({
+                id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                url: fileUrl,
+                kind: 'video',
+              });
+            });
+        } else {
+          resolve({
+            id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            url: fileUrl,
+            kind: 'image',
+          });
+        }
+      };
       r.readAsDataURL(f);
-    }))).then(items => {
+    })))
+    .then(items => {
       setMedia(prev => [...prev, ...items]);
       setIsReading(false);
     });
@@ -1778,7 +1859,7 @@ function PulseCreateSheet({ isOpen, onClose, currentUser, onPost, onSchedule, dr
     if (isPollMode) {
       newPost = { ...base, type: 'poll', text, pollOptions: validPollOptions };
     } else if (video) {
-      newPost = { ...base, type: 'video_thumb', videoSrc: video.url, thumbnail: video.url, image: video.url, caption: text, duration: '0:00' };
+      newPost = { ...base, type: 'video_thumb', videoSrc: video.url, thumbnail: video.thumbnail || video.url, image: video.thumbnail || video.url, caption: text, duration: '0:00' };
     } else if (images.length > 1) {
       newPost = { ...base, type: 'multi_image', images, image: images[0], caption: text };
     } else if (images.length === 1) {
